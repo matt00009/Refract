@@ -16,8 +16,10 @@
     --rf-mist: #E8F0E0;
   }
 
-  * {
-    @apply border-[0.5px];
+  * , *::before, *::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--rf-border);
   }
 
   body {

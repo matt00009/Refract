@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { History, ChevronDown, Zap } from 'lucide-react';
 import type { Provider } from '../types/analysis';
 
@@ -34,7 +34,6 @@ const PROVIDERS: { value: Provider; label: string; icon: string; model: string }
 
 export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, isLoading }: TopBarProps) {
   const [providerOpen, setProviderOpen] = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
 
   const activeProvider = PROVIDERS.find((p) => p.value === provider) || PROVIDERS[0];
 
@@ -64,7 +63,7 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
         </select>
 
         {/* Provider selector */}
-        <div className="relative" ref={dropRef}>
+        <div className="relative">
           <button
             onClick={() => setProviderOpen((v) => !v)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] hover:bg-[var(--rf-surface)] transition-colors"
