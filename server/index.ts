@@ -25,6 +25,16 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+// Cleanup stale rate limiter entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, timestamps] of rateLimiter.entries()) {
+    const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
+    if (recent.length === 0) rateLimiter.delete(ip);
+    else rateLimiter.set(ip, recent);
+  }
+}, 5 * 60 * 1000);
+
 const systemPrompt = `You are a senior software engineer performing a precise code review.
 Respond ONLY with a valid JSON object. No markdown. No explanation outside JSON. No preamble.
 
@@ -161,7 +171,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       return res.status(400).json({ error: 'Invalid language' });
     }
 
-    const VALID_PROVIDERS = Object.keys(API_MAP);
+    const VALID_PROVIDERS = ['auto', ...Object.keys(API_MAP)];
     if (provider && !VALID_PROVIDERS.includes(provider)) {
       return res.status(400).json({ error: 'Invalid provider' });
     }

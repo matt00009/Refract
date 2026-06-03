@@ -32,7 +32,7 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
             for (const line of tokenLines) {
               for (const token of line) {
                 const color = token.color || '#E8F0E0';
-                html += `<span style="color: ${color}">${token.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+                html += `<span style="color: ${color}">${token.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
               }
               html += '\n';
             }
