@@ -9,6 +9,16 @@ interface ResultsProps {
   loading: boolean;
 }
 
+function getComplexityColor(complexity: string): string {
+  const colors: Record<string, string> = {
+    low: 'var(--rf-sky)',
+    medium: 'var(--rf-warn)',
+    high: 'var(--rf-ember)',
+    critical: 'var(--rf-ember)',
+  };
+  return colors[complexity] || 'var(--rf-sky)';
+}
+
 function LoadingSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
@@ -45,16 +55,6 @@ export function Results({ result, loading }: ResultsProps) {
     return <EmptyState />;
   }
 
-  const getComplexityColor = () => {
-    const colors: Record<string, string> = {
-      low: 'var(--rf-sky)',
-      medium: 'var(--rf-warn)',
-      high: 'var(--rf-ember)',
-      critical: 'var(--rf-ember)',
-    };
-    return colors[result.complexity] || 'var(--rf-sky)';
-  };
-
   return (
     <div className="flex-1 p-6 overflow-y-auto space-y-6">
       {/* Summary */}
@@ -79,7 +79,7 @@ export function Results({ result, loading }: ResultsProps) {
           <div className="text-xs uppercase tracking-wider text-[var(--rf-border)] mb-2">Complexity</div>
           <div
             className="px-3 py-1.5 rf-badge"
-            style={{ backgroundColor: getComplexityColor(), color: 'var(--rf-void)' }}
+            style={{ backgroundColor: getComplexityColor(result.complexity), color: 'var(--rf-void)' }}
           >
             {result.complexity.charAt(0).toUpperCase() + result.complexity.slice(1)}
           </div>

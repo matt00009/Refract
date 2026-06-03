@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { highlightCodeToTokens } from '../lib/highlight';
+import { detectLanguage } from '../lib/detect';
 
 interface EditorProps {
   code: string;
@@ -12,6 +13,7 @@ interface EditorProps {
 export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
+  const lineNumRef = useRef<HTMLDivElement>(null);
   const [highlightHtml, setHighlightHtml] = useState('');
   const [showPlaceholder, setShowPlaceholder] = useState(code.length === 0);
 
@@ -19,33 +21,37 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
   const maxChars = 4000;
 
   useEffect(() => {
-    const highlightCode = async () => {
-      if (code) {
-        try {
-          const tokens = await highlightCodeToTokens(code, language);
-          let html = '';
+    const timer = setTimeout(() => {
+      const highlightCode = async () => {
+        if (code) {
+          try {
+            const tokens = await highlightCodeToTokens(code, language);
+            let html = '';
 
-          const tokenLines = Array.isArray(tokens) ? tokens : tokens.tokens || [];
-          for (const line of tokenLines) {
-            for (const token of line) {
-              const color = token.color || '#E8F0E0';
-              html += `<span style="color: ${color}">${token.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+            const tokenLines = Array.isArray(tokens) ? tokens : tokens.tokens || [];
+            for (const line of tokenLines) {
+              for (const token of line) {
+                const color = token.color || '#E8F0E0';
+                html += `<span style="color: ${color}">${token.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+              }
+              html += '\n';
             }
-            html += '\n';
+
+            setHighlightHtml(html);
+          } catch (error) {
+            console.error('Highlight error:', error);
+            setHighlightHtml(code);
           }
-
-          setHighlightHtml(html);
-        } catch (error) {
-          console.error('Highlight error:', error);
-          setHighlightHtml(code);
+        } else {
+          setHighlightHtml('');
         }
-      } else {
-        setHighlightHtml('');
-      }
-      setShowPlaceholder(code.length === 0);
-    };
+        setShowPlaceholder(code.length === 0);
+      };
 
-    highlightCode();
+      highlightCode();
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [code, language]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -58,8 +64,15 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
 
   const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pasted = e.clipboardData.getData('text');
-    if ((code + pasted).length > maxChars) {
+    const available = maxChars - code.length;
+
+    if (pasted.length > available) {
       e.preventDefault();
+      const truncated = pasted.substring(0, available);
+      const start = textareaRef.current?.selectionStart || 0;
+      const end = textareaRef.current?.selectionEnd || 0;
+      const newCode = code.substring(0, start) + truncated + code.substring(end);
+      onChange(newCode);
       return;
     }
 
@@ -67,7 +80,7 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
     if (language === 'auto' || language === '') {
       setTimeout(() => {
         const fullCode = code + pasted;
-        const detected = detectLanguageFromCode(fullCode);
+        const detected = detectLanguage(fullCode);
         if (detected !== 'javascript') {
           onLanguageDetect(detected);
         }
@@ -87,6 +100,9 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
       highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
       highlightRef.current.scrollTop = textareaRef.current.scrollTop;
     }
+    if (lineNumRef.current && textareaRef.current) {
+      lineNumRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
   };
 
   return (
@@ -97,7 +113,7 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
         <div className="flex flex-1 overflow-hidden">
           {/* Line numbers */}
           <div className="w-8 bg-[var(--rf-forest)] border-r border-[var(--rf-border)] flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-hidden pt-4 pr-2">
+            <div ref={lineNumRef} className="flex-1 overflow-hidden pt-4 pr-2">
               {code
                 .split('\n')
                 .map((_, i) => (
@@ -156,37 +172,3 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
   );
 }
 
-function detectLanguageFromCode(code: string): string {
-  if (
-    /^\s*(interface|type|namespace|module)\s+\w+/.test(code) ||
-    /:\s*(string|number|boolean|any|void|never)\b/.test(code)
-  ) {
-    return 'typescript';
-  }
-
-  if (/\bimport\s+|export\s+(default|const|function|class)/.test(code)) {
-    return 'javascript';
-  }
-
-  if (/^(import|from)\s+\w+|def\s+\w+\s*\(|class\s+\w+:/.test(code)) {
-    return 'python';
-  }
-
-  if (/\bpackage\s+\w+|func\s+\w+\s*\(/.test(code)) {
-    return 'go';
-  }
-
-  if (/\bfn\s+\w+\s*\(|let\s+mut\s+\w+/.test(code)) {
-    return 'rust';
-  }
-
-  if (/^<\?php|\bpublic\s+(function|class)/.test(code)) {
-    return 'php';
-  }
-
-  if (/\bpublic\s+(class|void|static)|\bimport\s+java\./.test(code)) {
-    return 'java';
-  }
-
-  return 'javascript';
-}
