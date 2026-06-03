@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --rf-void: #080B0F;
+    --rf-depth: #0D1117;
+    --rf-forest: #141E1A;
+    --rf-surface: #1E2D28;
+    --rf-border: #2A3D35;
+    --rf-volt: #A8FF3E;
+    --rf-sky: #79C0FF;
+    --rf-ember: #FF9070;
+    --rf-warn: #FFD166;
+    --rf-mist: #E8F0E0;
+  }
+
+  * {
+    @apply border-[0.5px];
+  }
+
+  body {
+    @apply bg-[var(--rf-void)] text-[var(--rf-mist)] font-sans;
+  }
+}
+
+@layer components {
+  .rf-mono {
+    @apply font-mono;
+  }
+
+  .rf-card {
+    @apply border border-[var(--rf-border)] rounded-[10px] bg-[var(--rf-surface)];
+  }
+
+  .rf-badge {
+    @apply rounded-[6px] px-2 py-1 text-xs font-semibold;
+  }
+
+  .rf-btn-volt {
+    @apply bg-[var(--rf-volt)] text-[var(--rf-void)] font-bold px-4 py-2 rounded-[10px] hover:opacity-90 transition-opacity cursor-pointer;
+  }
+}
