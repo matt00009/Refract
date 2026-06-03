@@ -1,7 +1,7 @@
 import type { HistoryEntry } from '../types/analysis';
 
 const STORAGE_KEY = 'refract_premium_history';
-const LIMIT = 15;
+export const LIMIT = 15;
 
 function generateId(): string {
   if (typeof window !== 'undefined' && window.crypto?.randomUUID) {

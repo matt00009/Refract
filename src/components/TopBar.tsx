@@ -12,25 +12,9 @@ interface TopBarProps {
   isLoading: boolean;
 }
 
-const LANGUAGES = [
-  { label: 'Auto', value: 'auto' },
-  { label: 'JS', value: 'javascript' },
-  { label: 'TS', value: 'typescript' },
-  { label: 'Python', value: 'python' },
-  { label: 'Go', value: 'go' },
-  { label: 'Rust', value: 'rust' },
-  { label: 'PHP', value: 'php' },
-  { label: 'Java', value: 'java' },
-];
+import { LANGUAGES as CONST_LANGUAGES, PROVIDERS } from '../lib/constants';
 
-const PROVIDERS: { value: Provider; label: string; icon: string; model: string }[] = [
-  { value: 'auto', label: 'Auto', icon: '🧠', model: '' },
-  { value: 'anthropic', label: 'Claude', icon: '🪶', model: 'claude-sonnet-4-20250514' },
-  { value: 'gemini', label: 'Gemini', icon: '♊', model: 'gemini-2.5-pro' },
-  { value: 'mistral', label: 'Mistral', icon: '🌪️', model: 'codestral-latest' },
-  { value: 'groq', label: 'Groq', icon: '⚡', model: 'llama-3.3-70b-versatile' },
-  { value: 'deepseek', label: 'DeepSeek', icon: '🐳', model: 'deepseek-chat' },
-];
+const LANGUAGES = CONST_LANGUAGES.map(l => ({ label: l === 'auto' ? 'Auto' : l === 'javascript' ? 'JS' : l === 'typescript' ? 'TS' : l.charAt(0).toUpperCase() + l.slice(1), value: l }));
 
 export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, isLoading }: TopBarProps) {
   const [providerOpen, setProviderOpen] = useState(false);
@@ -53,6 +37,7 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
       <div className="flex items-center gap-2">
         {/* Language */}
         <select
+          aria-label="Select language"
           value={language}
           onChange={(e) => onLanguageChange(e.target.value)}
           className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors"

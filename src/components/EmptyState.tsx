@@ -7,7 +7,9 @@ export function EmptyState() {
         <Terminal size={32} className="text-[var(--rf-volt)]" />
       </div>
       <div className="space-y-2">
-        <p className="text-sm text-[var(--rf-border)]">Paste code on the left</p>
+        <p className="text-sm text-[var(--rf-border)]">
+          Paste code <span className="hidden md:inline">on the left</span><span className="inline md:hidden">above</span>
+        </p>
         <p className="text-xs text-[var(--rf-border)]">Press Cmd/Ctrl+Enter to analyze</p>
       </div>
     </div>

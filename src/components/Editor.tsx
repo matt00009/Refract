@@ -40,7 +40,8 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
             setHighlightHtml(html);
           } catch (error) {
             console.error('Highlight error:', error);
-            setHighlightHtml(code);
+            const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            setHighlightHtml(escapedCode);
           }
         } else {
           setHighlightHtml('');

@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import type { AnalysisResult } from '../src/types/analysis.js';
+import { LANGUAGES } from '../src/lib/constants.js';
 
 const app = express();
 const port = 3001;
@@ -35,6 +37,11 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 const systemPrompt = `You are a senior software engineer performing a precise code review.
 Respond ONLY with a valid JSON object. No markdown. No explanation outside JSON. No preamble.
 
@@ -53,6 +60,19 @@ Rules:
 - Fix snippets must be working code, not pseudocode.
 - Be direct. No "consider" or "you might want to". State facts.
 - max 8 issues, 2-3 strengths.`;
+
+// Provider Response Interfaces
+interface OpenAIFormatResponse {
+  choices: { message: { content: string } }[];
+}
+
+interface AnthropicResponse {
+  content: { text: string }[];
+}
+
+interface GeminiResponse {
+  candidates: { content: { parts: { text: string }[] } }[];
+}
 
 type ProviderConfig = {
   url: string;
@@ -73,7 +93,7 @@ const API_MAP: Record<string, ProviderConfig> = {
         { role: 'user', content: `Analyze this ${lang} code:\n\n${code}` },
       ],
     }),
-    parse: (res: any) => res.choices[0].message.content,
+    parse: (res: unknown) => (res as OpenAIFormatResponse).choices[0].message.content,
   },
   mistral: {
     url: 'https://api.mistral.ai/v1/chat/completions',
@@ -86,7 +106,7 @@ const API_MAP: Record<string, ProviderConfig> = {
         { role: 'user', content: `Analyze this ${lang} code:\n\n${code}` },
       ],
     }),
-    parse: (res: any) => res.choices[0].message.content,
+    parse: (res: unknown) => (res as OpenAIFormatResponse).choices[0].message.content,
   },
   deepseek: {
     url: 'https://api.deepseek.com/v1/chat/completions',
@@ -99,7 +119,7 @@ const API_MAP: Record<string, ProviderConfig> = {
         { role: 'user', content: `Analyze this ${lang} code:\n\n${code}` },
       ],
     }),
-    parse: (res: any) => res.choices[0].message.content,
+    parse: (res: unknown) => (res as OpenAIFormatResponse).choices[0].message.content,
   },
   anthropic: {
     url: 'https://api.anthropic.com/v1/messages',
@@ -110,7 +130,7 @@ const API_MAP: Record<string, ProviderConfig> = {
       system: systemPrompt,
       messages: [{ role: 'user', content: `Analyze this ${lang} code:\n\n${code}` }],
     }),
-    parse: (res: any) => res.content[0].text,
+    parse: (res: unknown) => (res as AnthropicResponse).content[0].text,
   },
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
@@ -119,7 +139,7 @@ const API_MAP: Record<string, ProviderConfig> = {
       contents: [{ parts: [{ text: `${systemPrompt}\n\nAnalyze this ${lang} code:\n\n${code}` }] }],
       generationConfig: { responseMimeType: 'application/json' },
     }),
-    parse: (res: any) => res.candidates[0].content.parts[0].text,
+    parse: (res: unknown) => (res as GeminiResponse).candidates[0].content.parts[0].text,
   },
 };
 
@@ -129,6 +149,50 @@ function extractJson(raw: string): unknown {
   const last = trimmed.lastIndexOf('}');
   if (first === -1 || last === -1) throw new Error('No JSON object found in response');
   return JSON.parse(trimmed.substring(first, last + 1));
+}
+
+function validateAnalysisResult(data: any): AnalysisResult {
+  if (typeof data !== 'object' || data === null) throw new Error('Result must be an object');
+  if (typeof data.score !== 'number') throw new Error('score must be a number');
+  if (!['low', 'medium', 'high', 'critical'].includes(data.complexity)) throw new Error('invalid complexity');
+  if (typeof data.summary !== 'string') throw new Error('summary must be a string');
+  if (!Array.isArray(data.issues)) throw new Error('issues must be an array');
+  if (!Array.isArray(data.strengths) || !data.strengths.every((s: any) => typeof s === 'string')) throw new Error('strengths must be an array of strings');
+  
+  data.issues.forEach((issue: any, i: number) => {
+    if (!['bug', 'warning', 'suggestion'].includes(issue.severity)) throw new Error(`issues[${i}].severity is invalid`);
+    if (typeof issue.title !== 'string') throw new Error(`issues[${i}].title must be a string`);
+    if (typeof issue.description !== 'string') throw new Error(`issues[${i}].description must be a string`);
+    if (issue.line !== null && typeof issue.line !== 'number') throw new Error(`issues[${i}].line must be number or null`);
+    if (issue.fix !== null && typeof issue.fix !== 'string') throw new Error(`issues[${i}].fix must be string or null`);
+  });
+  
+  return data as AnalysisResult;
+}
+
+// Retry fetch with backoff
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3, backoff = 500) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (response.status === 429 && i < retries - 1) {
+        // Rate limited, wait and retry
+        await new Promise(r => setTimeout(r, backoff * (i + 1)));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await new Promise(r => setTimeout(r, backoff * (i + 1)));
+    }
+  }
+  throw new Error('Max retries reached');
 }
 
 app.post('/api/analyze', async (req: express.Request, res: express.Response) => {
@@ -153,20 +217,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       return res.status(400).json({ error: 'Code exceeds 4000 character limit' });
     }
 
-    const VALID_LANGS = [
-      'auto',
-      'javascript',
-      'typescript',
-      'python',
-      'go',
-      'rust',
-      'php',
-      'java',
-      'html',
-      'css',
-      'json',
-      'sql',
-    ];
+    const VALID_LANGS = LANGUAGES;
     if (!VALID_LANGS.includes(language)) {
       return res.status(400).json({ error: 'Invalid language' });
     }
@@ -202,7 +253,9 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       return res.status(500).json({ error: `Missing API key: ${envKey}` });
     }
 
-    const response = await fetch(target.url, {
+    const startTime = Date.now();
+    
+    const response = await fetchWithRetry(target.url, {
       method: 'POST',
       headers: target.headers(apiKey),
       body: JSON.stringify(target.getBody(code, language, model || '')),
@@ -210,14 +263,18 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Provider ${provider} returned ${response.status}: ${errText}`);
+      console.error(`Provider ${provider} returned ${response.status}: ${errText}`);
+      throw new Error(`Provider API error (${response.status})`);
     }
 
     const data = await response.json();
     const rawText = String(target.parse(data));
     const analysis = extractJson(rawText);
+    const validatedAnalysis = validateAnalysisResult(analysis);
+    
+    console.log(`Provider ${provider} took ${Date.now() - startTime}ms`);
 
-    return res.json(analysis);
+    return res.json(validatedAnalysis);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('Proxy routing failure:', msg);

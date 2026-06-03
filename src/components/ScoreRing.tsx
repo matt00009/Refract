@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface ScoreRingProps {
   score: number;
 }
 
-export function ScoreRing({ score }: ScoreRingProps) {
+export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
   const circumference = 2 * Math.PI * 45;
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
@@ -17,7 +18,7 @@ export function ScoreRing({ score }: ScoreRingProps) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="relative w-[120px] h-[120px]">
-        <svg className="absolute inset-0 transform -rotate-90" viewBox="0 0 100 100">
+        <svg className="absolute inset-0 transform -rotate-90" viewBox="0 0 100 100" aria-label={`Score: ${Math.round(score)} out of 100`}>
           <circle cx="50" cy="50" r="45" fill="none" stroke="var(--rf-border)" strokeWidth="2" />
           <motion.circle
             cx="50"
@@ -50,4 +51,4 @@ export function ScoreRing({ score }: ScoreRingProps) {
       </div>
     </div>
   );
-}
+});

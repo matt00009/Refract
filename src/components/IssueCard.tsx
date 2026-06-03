@@ -27,7 +27,8 @@ export function IssueCard({ issue, index }: IssueCardProps) {
         await navigator.clipboard.writeText(issue.fix);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      } catch {
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
         setCopied(false);
       }
     }

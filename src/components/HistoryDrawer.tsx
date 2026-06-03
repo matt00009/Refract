@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Download, Upload } from 'lucide-react';
 import type { HistoryEntry } from '../types/analysis';
 import { exportHistoryJSON, importHistoryJSON } from '../lib/history';
+import { PROVIDER_ICONS } from '../lib/constants';
 
 interface HistoryDrawerProps {
   open: boolean;
@@ -23,15 +24,6 @@ function timeAgo(ts: number): string {
   if (h < 24) return `${h}h ago`;
   return `${d}d ago`;
 }
-
-const PROVIDER_LABELS: Record<string, string> = {
-  auto: '🧠',
-  anthropic: '🪶',
-  gemini: '♊',
-  mistral: '🌪️',
-  groq: '⚡',
-  deepseek: '🐳',
-};
 
 export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImport }: HistoryDrawerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +59,9 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
           />
 
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="History"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -134,7 +129,7 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                           {entry.score}
                         </span>
                         <span className="text-[10px] uppercase tracking-wider text-[var(--rf-border)]">{entry.lang}</span>
-                        <span className="ml-auto text-xs leading-none">{PROVIDER_LABELS[entry.provider] || '•'}</span>
+                        <span className="ml-auto text-xs leading-none">{PROVIDER_ICONS[entry.provider] || '•'}</span>
                         <span className="text-[10px] text-[var(--rf-border)]">{timeAgo(entry.ts)}</span>
                       </div>
                       <p className="text-[11px] text-[var(--rf-mist)] line-clamp-1 mb-1">{entry.summary}</p>

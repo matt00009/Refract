@@ -4,7 +4,7 @@ import { Editor } from './components/Editor';
 import { Results } from './components/Results';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { analyzeCode } from './lib/api';
-import { loadHistory, saveToHistory, clearHistory } from './lib/history';
+import { loadHistory, saveToHistory, clearHistory, LIMIT } from './lib/history';
 import { detectLanguage } from './lib/detect';
 import type { AnalysisResult, HistoryEntry, Provider } from './types/analysis';
 
@@ -41,7 +41,7 @@ export default function App() {
         resultCache: analysisResult,
       });
 
-      setHistory((prev) => [entry, ...prev].slice(0, 15));
+      setHistory((prev) => [entry, ...prev].slice(0, LIMIT));
     } catch (error) {
       console.error('Analysis failed:', error);
       const msg = error instanceof Error ? error.message : 'Unknown error';
