@@ -33,9 +33,7 @@ A precision terminal-inspired AI code review tool built with React, Vite, and Cl
 Create or update `.env` file with:
 
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-VITE_SUPABASE_URL=https://0ec90b57d6e95fcbda19832f.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJib2x0IiwicmVmIjoiMGVjOTBiNTdkNmU5NWZjYmRhMTk4MzJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4ODE1NzQsImV4cCI6MTc1ODg4MTU3NH0.9I8-U0x86Ak8t2DGaIk0HfvTSLsAyzdnz-Nw00mMkKw
+ALLKEY=_API_KEYS
 ```
 
 ### 2. Install Dependencies
