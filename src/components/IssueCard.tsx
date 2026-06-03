@@ -21,11 +21,15 @@ export function IssueCard({ issue, index }: IssueCardProps) {
   const config = severityConfig[issue.severity];
   const Icon = config.icon;
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (issue.fix) {
-      navigator.clipboard.writeText(issue.fix);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(issue.fix);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setCopied(false);
+      }
     }
   };
 

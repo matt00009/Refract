@@ -5,8 +5,8 @@ A precision terminal-inspired AI code review tool built with React, Vite, and Cl
 ## Features
 
 - **Live Code Highlighting**: Real-time Shiki syntax highlighting with VS Code theme
-- **AI-Powered Analysis**: Claude-powered code reviews with scoring, complexity analysis, and actionable fixes
-- **History Tracking**: localStorage-based history for recent analyses (no database required)
+- **AI-Powered Analysis**: Multi-provider code reviews (Claude, Gemini, Mistral, Groq, DeepSeek) with smart auto-routing, scoring, complexity analysis, and actionable fixes
+- **History Tracking**: localStorage-based history for recent analyses with full code cache, export/import JSON backups (no database required)
 - **Responsive Design**: Works perfectly from 400px on mobile to large desktop
 - **iframe-Safe**: Completely self-contained, works in iframe context without any parent window access
 - **Zero Cookies**: No tracking, no analytics, pure code analysis
@@ -18,22 +18,32 @@ A precision terminal-inspired AI code review tool built with React, Vite, and Cl
 - Tailwind CSS v3
 - Framer Motion (animations)
 - Shiki v1 (VS Code syntax highlighting)
-- Express (minimal API proxy)
-- Anthropic SDK (Claude API)
+- Express (minimal API proxy with multi-provider routing)
+- Multi-provider AI integration (Anthropic, Groq, Mistral, DeepSeek, Gemini)
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- Anthropic API key (get one at [console.anthropic.com](https://console.anthropic.com))
+- At least one AI provider API key (Anthropic, Groq, Mistral, DeepSeek, or Gemini)
 
 ### 1. Setup Environment
 
-Create or update `.env` file with:
+Copy `.env.example` to `.env` and fill in your API keys:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your provider keys:
 
 ```env
-ALLKEY=_API_KEYS
+ANTHROPIC_API_KEY=your_key_here
+GROQ_API_KEY=your_key_here
+MISTRAL_API_KEY=your_key_here
+DEEPSEEK_API_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
 ```
 
 ### 2. Install Dependencies
@@ -73,8 +83,9 @@ refract/
 │   │   ├── Results.tsx          # Analysis output, loading state, metrics
 │   │   ├── ScoreRing.tsx        # Animated SVG score visualization
 │   │   ├── IssueCard.tsx        # Expandable issue cards with fix snippets
-│   │   ├── IssueCard.tsx        # History drawer slide-in panel
-│   │   └── EmptyState.tsx       # Ghost state before first analysis
+│   │   ├── HistoryDrawer.tsx    # History drawer slide-in panel with export/import
+│   │   ├── EmptyState.tsx       # Ghost state before first analysis
+│   │   └── ErrorBoundary.tsx    # Error fallback boundary
 │   ├── lib/
 │   │   ├── api.ts              # POST /api/analyze fetch client
 │   │   ├── highlight.ts        # Shiki singleton highlighter
@@ -86,7 +97,7 @@ refract/
 │   ├── main.tsx                # React DOM render
 │   └── index.css               # Tailwind + design tokens
 ├── server/
-│   └── index.ts                # Express proxy + Claude API integration
+│   └── index.ts                # Express proxy + multi-provider routing
 ├── index.html                  # HTML entry
 ├── vite.config.ts              # Vite configuration with /api proxy
 ├── tailwind.config.js          # Tailwind responsive breakpoints
@@ -178,9 +189,9 @@ Analyzes code and returns a detailed review.
 ### History
 
 - **localStorage Storage**: No backend required, persists between sessions
-- **Max 10 Entries**: Oldest entry auto-removed when limit exceeded
-- **Quick Restore**: Click entry to restore code and past analysis
-- **Clear All**: Wipe entire history
+- **Max 15 Entries**: Oldest entry auto-removed when limit exceeded
+- **Quick Restore**: Click entry to restore code and past analysis (instant, no API call)
+- **Export/Import**: Download history as JSON backup and restore from backup file
 
 ### ScoreRing
 
@@ -280,14 +291,17 @@ Shiki language definitions are included in the bundle. This is expected. For pro
 
 ## Non-Negotiables
 
-1. **API Key Security**: `ANTHROPIC_API_KEY` only server-side, never in client bundle
-2. **JSON Parse Safety**: Try/catch with one retry on parse failure
+1. **API Key Security**: All provider keys only server-side, never in client bundle
+2. **JSON Extract First**: Substring extraction before JSON.parse, handles markdown wraps
 3. **Skeleton Matching**: Loading skeleton matches results layout exactly
 4. **Shiki Singleton**: Initialized once, reused across highlights
-5. **History Cap**: Max 10 entries, oldest auto-removed
-6. **Keyboard Shortcut**: Cmd/Ctrl+Enter works reliably
-7. **Zero Tracking**: No third-party scripts, no cookies
-8. **iframe Safe**: No parent window access, works perfectly in iframe
+5. **History Cap**: Max 15 entries, oldest auto-removed
+6. **Full Code Cache**: Complete code stored (not truncated) with result cache for instant restore
+7. **Keyboard Shortcut**: Cmd/Ctrl+Enter works reliably
+8. **Zero Tracking**: No third-party scripts, no cookies
+9. **iframe Safe**: No parent window access, works perfectly in iframe
+10. **Rate Limiting**: Server-side 10 req/min per IP protection
+11. **Multi-Provider**: Smart auto-routing based on code size and language
 
 ## License
 

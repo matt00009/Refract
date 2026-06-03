@@ -6,7 +6,24 @@ const app = express();
 const port = 3001;
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+
+// Simple in-memory rate limiter (10 req/min per IP)
+const rateLimiter = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW = 60000;
+const RATE_LIMIT_MAX = 10;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = rateLimiter.get(ip) || [];
+  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
+
+  if (recent.length >= RATE_LIMIT_MAX) return false;
+
+  recent.push(now);
+  rateLimiter.set(ip, recent);
+  return true;
+}
 
 const systemPrompt = `You are a senior software engineer performing a precise code review.
 Respond ONLY with a valid JSON object. No markdown. No explanation outside JSON. No preamble.
@@ -106,6 +123,11 @@ function extractJson(raw: string): unknown {
 
 app.post('/api/analyze', async (req: express.Request, res: express.Response) => {
   try {
+    const ip = req.ip || 'unknown';
+    if (!checkRateLimit(ip)) {
+      return res.status(429).json({ error: 'Rate limit exceeded' });
+    }
+
     let { code, language, provider, model } = req.body as {
       code: string;
       language: string;
@@ -115,6 +137,33 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
 
     if (!code?.trim()) {
       return res.status(400).json({ error: 'Code context is empty' });
+    }
+
+    if (code.length > 4000) {
+      return res.status(400).json({ error: 'Code exceeds 4000 character limit' });
+    }
+
+    const VALID_LANGS = [
+      'auto',
+      'javascript',
+      'typescript',
+      'python',
+      'go',
+      'rust',
+      'php',
+      'java',
+      'html',
+      'css',
+      'json',
+      'sql',
+    ];
+    if (!VALID_LANGS.includes(language)) {
+      return res.status(400).json({ error: 'Invalid language' });
+    }
+
+    const VALID_PROVIDERS = Object.keys(API_MAP);
+    if (provider && !VALID_PROVIDERS.includes(provider)) {
+      return res.status(400).json({ error: 'Invalid provider' });
     }
 
     // Auto-routing logic
