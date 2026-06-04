@@ -15,14 +15,22 @@ interface HistoryDrawerProps {
 }
 
 function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  const m = Math.floor(diff / 60000);
-  const h = Math.floor(diff / 3600000);
-  const d = Math.floor(diff / 86400000);
-  if (m < 1) return 'now';
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  
+  if (diff < 30) return 'just now';
+  if (diff < 60) return `${diff}s ago`;
+  
+  const m = Math.floor(diff / 60);
   if (m < 60) return `${m}m ago`;
+  
+  const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
-  return `${d}d ago`;
+  
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  
+  const w = Math.floor(d / 7);
+  return `${w}w ago`;
 }
 
 export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImport }: HistoryDrawerProps) {

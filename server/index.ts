@@ -10,30 +10,34 @@ const port = 3001;
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
 
-// Simple in-memory rate limiter (10 req/min per IP)
+// Enterprise-grade sliding window rate limiter
 const rateLimiter = new Map<string, number[]>();
-const RATE_LIMIT_WINDOW = 60000;
-const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 10;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const timestamps = rateLimiter.get(ip) || [];
-  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
+  
+  // Clean old entries from the current request's window
+  const validTimestamps = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
 
-  if (recent.length >= RATE_LIMIT_MAX) return false;
+  if (validTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
 
-  recent.push(now);
-  rateLimiter.set(ip, recent);
+  validTimestamps.push(now);
+  rateLimiter.set(ip, validTimestamps);
   return true;
 }
 
-// Cleanup stale rate limiter entries every 5 minutes
+// Background cleanup: Remove IPs that haven't requested in the last window
 setInterval(() => {
   const now = Date.now();
   for (const [ip, timestamps] of rateLimiter.entries()) {
-    const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
-    if (recent.length === 0) rateLimiter.delete(ip);
-    else rateLimiter.set(ip, recent);
+    if (timestamps.length === 0 || now - timestamps[timestamps.length - 1] > RATE_LIMIT_WINDOW_MS) {
+      rateLimiter.delete(ip);
+    }
   }
 }, 5 * 60 * 1000);
 
