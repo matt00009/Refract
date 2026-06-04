@@ -3,6 +3,10 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Libre Franklin', 'sans-serif'],
+        mono: ['Courier Prime', 'Courier New', 'monospace'],
+      },
       screens: {
         xs: '400px',
         sm: '640px',

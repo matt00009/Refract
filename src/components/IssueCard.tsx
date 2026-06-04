@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { ChevronDown, AlertCircle, AlertTriangle, Lightbulb } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Issue } from '../types/analysis';
@@ -8,18 +8,24 @@ interface IssueCardProps {
   index: number;
 }
 
-export function IssueCard({ issue, index }: IssueCardProps) {
+/** Severity-specific display configuration (color, icon, label). */
+const SEVERITY_CONFIG = {
+  bug: { color: 'var(--rf-ember)', icon: AlertCircle, label: 'Bug' },
+  warning: { color: 'var(--rf-warn)', icon: AlertTriangle, label: 'Warning' },
+  suggestion: { color: 'var(--rf-sky)', icon: Lightbulb, label: 'Suggestion' },
+} as const;
+
+/**
+ * Expandable card displaying a single code review issue.
+ * Shows severity, title, description, and an optional code fix.
+ */
+export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const severityConfig = {
-    bug: { color: 'var(--rf-ember)', icon: AlertCircle, label: 'Bug' },
-    warning: { color: 'var(--rf-warn)', icon: AlertTriangle, label: 'Warning' },
-    suggestion: { color: 'var(--rf-sky)', icon: Lightbulb, label: 'Suggestion' },
-  };
-
-  const config = severityConfig[issue.severity];
+  const config = SEVERITY_CONFIG[issue.severity];
   const Icon = config.icon;
+  const contentId = `issue-content-${index}`;
 
   const handleCopy = async () => {
     if (issue.fix) {
@@ -44,13 +50,15 @@ export function IssueCard({ issue, index }: IssueCardProps) {
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-controls={contentId}
         className="w-full flex items-start gap-3 text-left hover:opacity-80 transition-opacity"
       >
         <Icon size={18} style={{ color: config.color, marginTop: '2px', flexShrink: 0 }} />
 
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-sm text-[var(--rf-mist)] line-clamp-1">{issue.title}</div>
-          <div className="text-xs text-[var(--rf-border)]">
+          <div className="text-xs text-[var(--rf-mist)]/50">
             {config.label}
             {issue.line && ` · Line ${issue.line}`}
           </div>
@@ -69,6 +77,7 @@ export function IssueCard({ issue, index }: IssueCardProps) {
       <AnimatePresence>
         {expanded && (
           <motion.div
+            id={contentId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -81,9 +90,10 @@ export function IssueCard({ issue, index }: IssueCardProps) {
               {issue.fix && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wider text-[var(--rf-border)]">Fix</span>
+                    <span className="text-xs uppercase tracking-wider text-[var(--rf-mist)]/50">Fix</span>
                     <button
                       onClick={handleCopy}
+                      aria-label="Copy fix to clipboard"
                       className="text-xs px-2 py-1 rounded-[4px] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] text-[var(--rf-sky)] transition-colors"
                     >
                       {copied ? 'Copied!' : 'Copy'}
@@ -100,4 +110,4 @@ export function IssueCard({ issue, index }: IssueCardProps) {
       </AnimatePresence>
     </motion.div>
   );
-}
+});

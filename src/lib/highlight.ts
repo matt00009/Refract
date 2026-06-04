@@ -1,24 +1,33 @@
 import { getHighlighter, type BundledLanguage } from 'shiki';
-
-const SUPPORTED_LANGS = ['javascript', 'typescript', 'python', 'go', 'rust', 'php', 'java', 'html', 'css', 'json', 'sql'] as const;
-type SupportedLang = typeof SUPPORTED_LANGS[number];
+import { CODE_LANGUAGES } from './constants';
 
 let highlighter: Awaited<ReturnType<typeof getHighlighter>> | null = null;
 
+/**
+ * Returns a singleton Shiki highlighter instance.
+ * Loads all supported languages on first call.
+ */
 async function getHighlighterInstance() {
   if (!highlighter) {
     highlighter = await getHighlighter({
       themes: ['github-dark-default'],
-      langs: [...SUPPORTED_LANGS],
+      langs: [...CODE_LANGUAGES],
     });
   }
   return highlighter;
 }
 
+/**
+ * Highlights code and returns the result as an HTML string.
+ *
+ * @param code - The source code to highlight
+ * @param language - The language identifier
+ * @returns HTML string with syntax highlighting
+ */
 export async function highlightCode(code: string, language: string): Promise<string> {
   const h = await getHighlighterInstance();
 
-  const validLang = SUPPORTED_LANGS.includes(language as SupportedLang)
+  const validLang = (CODE_LANGUAGES as readonly string[]).includes(language)
     ? (language as BundledLanguage)
     : 'javascript';
 
@@ -30,10 +39,17 @@ export async function highlightCode(code: string, language: string): Promise<str
   return highlighted;
 }
 
+/**
+ * Highlights code and returns structured token data.
+ *
+ * @param code - The source code to highlight
+ * @param language - The language identifier
+ * @returns Token data with color and content information
+ */
 export async function highlightCodeToTokens(code: string, language: string) {
   const h = await getHighlighterInstance();
 
-  const validLang = SUPPORTED_LANGS.includes(language as SupportedLang)
+  const validLang = (CODE_LANGUAGES as readonly string[]).includes(language)
     ? (language as BundledLanguage)
     : 'javascript';
 

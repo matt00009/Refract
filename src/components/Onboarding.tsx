@@ -55,9 +55,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[16px] p-8 shadow-2xl flex flex-col items-center text-center"
+            className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[10px] p-8 flex flex-col items-center text-center"
           >
-            <div className="mb-6 bg-[var(--rf-forest)] p-4 rounded-full border border-[var(--rf-border)] shadow-inner">
+            <div className="mb-6 bg-[var(--rf-forest)] p-4 rounded-full border border-[var(--rf-border)]">
               {STEPS[step].icon}
             </div>
             
@@ -83,7 +83,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
               <button
                 onClick={nextStep}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[var(--rf-volt)] text-[var(--rf-void)] font-bold rounded-lg hover:opacity-90 transition-opacity"
+                className="flex items-center gap-2 px-6 py-2.5 bg-[var(--rf-volt)] text-[var(--rf-void)] font-bold rounded-[6px] hover:opacity-90 transition-opacity cursor-pointer"
               >
                 {step === STEPS.length - 1 ? 'Start Refracting' : 'Next'}
                 {step !== STEPS.length - 1 && <ArrowRight size={16} />}

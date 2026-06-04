@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { History, ChevronDown, Zap, Settings, Share2 } from 'lucide-react';
+import { History, Settings, Share2, Zap } from 'lucide-react';
 import type { Provider } from '../types/analysis';
+import { PROVIDERS } from '../lib/constants';
 
 interface TopBarProps {
-  language: string;
-  onLanguageChange: (lang: string) => void;
   provider: Provider;
   onProviderChange: (p: Provider) => void;
   onAnalyze: () => void;
@@ -14,74 +12,65 @@ interface TopBarProps {
   isLoading: boolean;
 }
 
-import { LANGUAGES as CONST_LANGUAGES, PROVIDERS } from '../lib/constants';
-
-const LANGUAGES = CONST_LANGUAGES.map(l => ({ label: l === 'auto' ? 'Auto' : l === 'javascript' ? 'JS' : l === 'typescript' ? 'TS' : l.charAt(0).toUpperCase() + l.slice(1), value: l }));
-
-export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, onSettingsClick, onShare, isLoading }: TopBarProps) {
-  const [providerOpen, setProviderOpen] = useState(false);
-
-  const activeProvider = PROVIDERS.find((p) => p.value === provider) || PROVIDERS[0];
-
+/**
+ * Fixed top navigation bar.
+ * Implements a clean Precision Terminal styling with brand, provider pills, and actions.
+ */
+export function TopBar({
+  provider,
+  onProviderChange,
+  onAnalyze,
+  onHistoryClick,
+  onSettingsClick,
+  onShare,
+  isLoading,
+}: TopBarProps) {
   return (
-    <div className="fixed top-0 left-0 right-0 h-[52px] bg-[var(--rf-depth)] border-b border-[var(--rf-border)] flex items-center justify-between px-4 z-50">
-      {/* Logo */}
-      <div className="flex items-center gap-2 shrink-0">
-        <img
-          src="/Minimalist_tech_logo_mark_refract_202606032156.jpeg"
-          alt="refract"
-          className="w-7 h-7 rounded-[6px] object-cover"
-        />
-        <span className="text-sm font-bold text-[var(--rf-volt)] tracking-tight hidden sm:block">refract</span>
+    <div className="fixed top-0 left-0 right-0 h-[52px] bg-[var(--rf-void)] border-b border-[var(--rf-border)] flex items-center justify-between px-4 z-50">
+      {/* Brand */}
+      <div className="flex items-center gap-1.5 shrink-0 select-none">
+        <span className="font-mono text-[var(--rf-volt)] font-bold text-lg tracking-tighter">&gt;_ refract</span>
       </div>
 
-      {/* Center controls */}
-      <div className="flex items-center gap-2">
-        {/* Language */}
-        <select
-          aria-label="Select language"
-          value={language}
-          onChange={(e) => onLanguageChange(e.target.value)}
-          className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors"
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.value} value={l.value}>{l.label}</option>
-          ))}
-        </select>
+      {/* Center controls (Provider Selector) */}
+      <div className="flex items-center">
+        {/* Desktop capsule selector */}
+        <div className="hidden md:flex items-center gap-1 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-full px-1.5 py-1">
+          {PROVIDERS.map((p) => {
+            const isActive = p.value === provider;
+            const Icon = p.icon;
+            return (
+              <button
+                key={p.value}
+                onClick={() => onProviderChange(p.value)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isActive
+                    ? 'bg-[var(--rf-void)] text-[var(--rf-mist)] border border-[var(--rf-border)] shadow-sm'
+                    : 'text-[var(--rf-mist)]/60 hover:text-[var(--rf-mist)] border border-transparent'
+                }`}
+                aria-label={`Select AI Provider: ${p.label}`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{p.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        {/* Provider selector */}
-        <div className="relative">
-          <button
-            onClick={() => setProviderOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] hover:bg-[var(--rf-surface)] transition-colors"
+        {/* Mobile select fallback */}
+        <div className="block md:hidden relative">
+          <select
+            aria-label="Select AI provider"
+            value={provider}
+            onChange={(e) => onProviderChange(e.target.value as Provider)}
+            className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors focus:outline-none"
           >
-            <activeProvider.icon className="w-4 h-4 text-[var(--rf-mist)]" />
-            <span className="hidden sm:block">{activeProvider.label}</span>
-            <ChevronDown size={12} className={`transition-transform ${providerOpen ? 'rotate-180' : ''}`} />
-          </button>
-
-          {providerOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setProviderOpen(false)} />
-              <div className="absolute top-full left-0 mt-1 bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[8px] overflow-hidden z-50 min-w-[140px] shadow-lg">
-                {PROVIDERS.map((p) => (
-                  <button
-                    key={p.value}
-                    onClick={() => { onProviderChange(p.value); setProviderOpen(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[var(--rf-forest)] transition-colors ${
-                      p.value === provider ? 'text-[var(--rf-volt)]' : 'text-[var(--rf-mist)]'
-                    }`}
-                  >
-                    <p.icon className={`w-4 h-4 ${p.value === provider ? 'text-[var(--rf-volt)]' : 'text-[var(--rf-mist)]'}`} />
-                    <span className="flex-1">{p.label}</span>
-                    {p.value === provider && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--rf-volt)]" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+            {PROVIDERS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -89,40 +78,42 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onShare}
-          className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-mist)] hover:text-white"
-          title="Share Link"
+          className="w-8 h-8 rounded-full flex items-center justify-center border border-[var(--rf-border)] bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 hover:text-white transition-colors cursor-pointer"
+          title="Share report"
+          aria-label="Share report"
         >
-          <Share2 size={18} />
+          <Share2 size={16} />
         </button>
 
         <button
           onClick={onSettingsClick}
-          className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-mist)] hover:text-white"
+          className="w-8 h-8 rounded-full flex items-center justify-center border border-[var(--rf-border)] bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 hover:text-white transition-colors cursor-pointer"
           title="API Settings"
+          aria-label="API Settings"
         >
-          <Settings size={18} />
+          <Settings size={16} />
         </button>
 
         <button
           onClick={onHistoryClick}
-          className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-sky)]"
+          className="w-8 h-8 rounded-full flex items-center justify-center border border-[var(--rf-border)] bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 hover:text-[var(--rf-sky)] transition-colors cursor-pointer"
           title="History"
+          aria-label="Open history"
         >
-          <History size={18} />
+          <History size={16} />
         </button>
 
         <button
           onClick={onAnalyze}
           disabled={isLoading}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--rf-volt)] text-[var(--rf-void)] text-sm font-bold rounded-[8px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label={isLoading ? 'Analyzing code' : 'Analyze code'}
+          className="flex items-center gap-2 px-4 py-1.5 bg-[var(--rf-volt)] text-[var(--rf-void)] text-sm font-bold rounded-[6px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
+          <span>{isLoading ? 'Analyzing' : 'Analyze Code'}</span>
           {isLoading ? (
-            <>
-              <Zap size={14} className="animate-pulse" />
-              <span className="hidden sm:block">Analyzing</span>
-            </>
+            <Zap size={14} className="animate-pulse" />
           ) : (
-            <span>Analyze →</span>
+            <span className="font-mono text-sm">&rarr;</span>
           )}
         </button>
       </div>

@@ -1,19 +1,18 @@
+import { CODE_LANGUAGES } from './constants';
+
+/**
+ * Detects the programming language of a code snippet using regex-based heuristics.
+ * Scores each supported language and returns the best match.
+ *
+ * @param code - The source code to analyze
+ * @returns The detected language identifier, or 'javascript' as fallback
+ */
 export function detectLanguage(code: string): string {
   if (!code.trim()) return 'auto';
 
-  const scores: Record<string, number> = {
-    typescript: 0,
-    javascript: 0,
-    python: 0,
-    go: 0,
-    rust: 0,
-    php: 0,
-    java: 0,
-    html: 0,
-    css: 0,
-    json: 0,
-    sql: 0,
-  };
+  const scores: Record<string, number> = Object.fromEntries(
+    CODE_LANGUAGES.map((lang) => [lang, 0])
+  );
 
   const sample = code.slice(0, 2000); // Sample for heavy regex
 
@@ -76,12 +75,12 @@ export function detectLanguage(code: string): string {
 
   // 10. JSON
   const trimmed = code.trim();
-  if (/^[\[\{]/.test(trimmed) && /[\]\}]$/.test(trimmed)) {
+  if (/^[[{]/.test(trimmed) && /[\]}]$/.test(trimmed)) {
     try {
       JSON.parse(trimmed);
       scores.json += 20;
     } catch {
-      if (/["']\w+["']\s*:\s*["'\d\[\{]/.test(sample)) scores.json += 10;
+      if (/["']\w+["']\s*:\s*["'\d[{]/.test(sample)) scores.json += 10;
     }
   }
 

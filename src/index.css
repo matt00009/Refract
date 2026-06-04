@@ -17,30 +17,68 @@
   }
 
   * , *::before, *::after {
-    border-width: 0;
-    border-style: solid;
     border-color: var(--rf-border);
   }
 
   body {
-    @apply bg-[var(--rf-void)] text-[var(--rf-mist)] font-sans;
+    @apply bg-[var(--rf-void)] text-[var(--rf-mist)] font-sans antialiased;
+    background-color: var(--rf-void);
+    background-image: none;
+    margin: 0;
+  }
+  
+  ::selection {
+    @apply bg-[var(--rf-volt)] text-slate-950;
+  }
+
+  /* Custom WebKit Scrollbars */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--rf-void);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--rf-border);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--rf-volt);
   }
 }
 
 @layer components {
   .rf-mono {
-    @apply font-mono;
+    @apply font-mono tracking-tight;
   }
 
+  /* Precision Brutalist Card */
   .rf-card {
-    @apply border border-[var(--rf-border)] rounded-[10px] bg-[var(--rf-surface)];
+    border: 0.5px solid var(--rf-border);
+    border-radius: 10px;
+    background-color: var(--rf-surface);
+    box-shadow: none;
   }
 
+  /* Micro status badges */
   .rf-badge {
-    @apply rounded-[6px] px-2 py-1 text-xs font-semibold;
+    border: 0.5px solid var(--rf-border);
+    border-radius: 6px;
+    background-color: var(--rf-forest);
+    @apply px-2.5 py-1 text-xs font-semibold tracking-wide uppercase;
   }
 
+  /* Solid Volt Button (No Gradients, No Shadows) */
   .rf-btn-volt {
-    @apply bg-[var(--rf-volt)] text-[var(--rf-void)] font-bold px-4 py-2 rounded-[10px] hover:opacity-90 transition-opacity cursor-pointer;
+    background-color: var(--rf-volt);
+    color: var(--rf-void);
+    @apply font-bold px-4 py-1.5 rounded-[6px] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer;
+    border: none;
+  }
+
+  .border-hairline {
+    border-width: 0.5px;
+    border-color: var(--rf-border);
   }
 }

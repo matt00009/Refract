@@ -10,6 +10,10 @@ interface State {
   error?: Error;
 }
 
+/**
+ * React error boundary that catches rendering errors and displays a fallback UI.
+ * Prevents the entire app from crashing due to a single component error.
+ */
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -32,7 +36,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[var(--rf-void)] flex items-center justify-center p-6">
+        <div role="alert" className="min-h-screen bg-[var(--rf-void)] flex items-center justify-center p-6">
           <div className="max-w-md w-full space-y-6 text-center">
             <div className="flex justify-center">
               <div className="w-16 h-16 rounded-full bg-[var(--rf-forest)] border border-[var(--rf-border)] flex items-center justify-center">
@@ -42,7 +46,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
             <div className="space-y-2">
               <h1 className="text-xl font-bold text-[var(--rf-mist)]">Something went wrong</h1>
-              <p className="text-sm text-[var(--rf-border)]">
+              <p className="text-sm text-[var(--rf-mist)]/60">
                 An unexpected error occurred. Try reloading the page.
               </p>
             </div>

@@ -11,6 +11,8 @@ interface SettingsModalProps {
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [serverConfig, setServerConfig] = useState<Record<string, boolean>>({});
   const [localKeys, setLocalKeys] = useState<Record<string, string>>({});
+  const [temperature, setTemperature] = useState(0.1);
+  const [maxTokens, setMaxTokens] = useState(2000);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,6 +35,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           // ignore
         }
       }
+
+      // Load advanced settings
+      const savedTemp = localStorage.getItem('rf_temperature');
+      if (savedTemp) setTemperature(parseFloat(savedTemp));
+      
+      const savedTokens = localStorage.getItem('rf_max_tokens');
+      if (savedTokens) setMaxTokens(parseInt(savedTokens));
     }
   }, [open]);
 
@@ -42,6 +51,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     
     setLocalKeys(newKeys);
     localStorage.setItem('rf_api_keys', JSON.stringify(newKeys));
+  };
+
+  const handleTempChange = (val: number) => {
+    setTemperature(val);
+    localStorage.setItem('rf_temperature', val.toString());
+  };
+
+  const handleTokensChange = (val: number) => {
+    setMaxTokens(val);
+    localStorage.setItem('rf_max_tokens', val.toString());
   };
 
   return (
@@ -60,7 +79,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[12px] w-full max-w-md shadow-2xl overflow-hidden"
+              className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[10px] w-full max-w-md overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--rf-border)]">
@@ -84,7 +103,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <div className="space-y-4 mt-6">
                   {loading ? (
-                    <div className="animate-pulse flex gap-4 items-center justify-center h-20 text-[var(--rf-border)]">
+                    <div className="animate-pulse flex gap-4 items-center justify-center h-20 text-[var(--rf-mist)]/50">
                       Loading server config...
                     </div>
                   ) : (
@@ -110,12 +129,64 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                             placeholder={isServerConfigured ? 'Using server config (Override optional)' : `Enter ${p.label} API Key`}
                             value={localKeys[p.value] || ''}
                             onChange={(e) => handleKeyChange(p.value, e.target.value)}
-                            className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-md px-3 py-2 text-sm text-white placeholder-[var(--rf-border)] focus:outline-none focus:border-[var(--rf-volt)] focus:ring-1 focus:ring-[var(--rf-volt)] transition-all"
+                            className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] px-3 py-2 text-sm text-white placeholder-[var(--rf-mist)]/30 focus:outline-none focus:border-[var(--rf-volt)] focus:ring-1 focus:ring-[var(--rf-volt)] transition-all"
                           />
                         </div>
                       );
                     })
                   )}
+                </div>
+
+                <div className="pt-4 border-t border-[var(--rf-border)] space-y-4">
+                  <h3 className="text-[10px] uppercase tracking-widest text-[var(--rf-border)] font-bold">Model Parameters</h3>
+                  
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px] text-[var(--rf-mist)]">
+                      <span>Temperature: {temperature}</span>
+                      <span className="text-[var(--rf-border)]">Precise ↔ Creative</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) => handleTempChange(parseFloat(e.target.value))}
+                      className="w-full accent-[var(--rf-volt)] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px] text-[var(--rf-mist)]">
+                      <span>Max Response Tokens: {maxTokens}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="500"
+                      max="4000"
+                      step="100"
+                      value={maxTokens}
+                      onChange={(e) => handleTokensChange(parseInt(e.target.value))}
+                      className="w-full accent-[var(--rf-volt)] cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-[var(--rf-border)]">
+                  <h3 className="text-[10px] uppercase tracking-widest text-[var(--rf-border)] font-bold mb-3">Keyboard Shortcuts</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'Cmd/Ctrl + Enter', desc: 'Analyze Code' },
+                      { key: 'Cmd/Ctrl + ,', desc: 'Open Settings' },
+                      { key: 'Cmd/Ctrl + H', desc: 'Toggle History' },
+                      { key: 'Cmd/Ctrl + F', desc: 'Toggle Focus Mode' },
+                    ].map((s) => (
+                      <div key={s.key} className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-mono text-[var(--rf-volt)]">{s.key}</span>
+                        <span className="text-[10px] text-[var(--rf-mist)]/50">{s.desc}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -123,7 +194,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="px-6 py-4 bg-[var(--rf-forest)] border-t border-[var(--rf-border)] flex justify-end">
                 <button
                   onClick={onClose}
-                  className="px-6 py-2 bg-[var(--rf-volt)] text-[var(--rf-void)] text-sm font-bold rounded-md hover:opacity-90 transition-opacity"
+                  className="px-6 py-2 bg-[var(--rf-volt)] text-[var(--rf-void)] text-sm font-bold rounded-[6px] hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   Done
                 </button>

@@ -32,7 +32,7 @@ function checkRateLimit(ip: string): boolean {
 }
 
 // Background cleanup: Remove IPs that haven't requested in the last window
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [ip, timestamps] of rateLimiter.entries()) {
     if (timestamps.length === 0 || now - timestamps[timestamps.length - 1] > RATE_LIMIT_WINDOW_MS) {
@@ -41,8 +41,12 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Clean up interval on process exit to prevent memory leaks during hot reload
+process.on('SIGTERM', () => { clearInterval(cleanupInterval); process.exit(0); });
+process.on('SIGINT', () => { clearInterval(cleanupInterval); process.exit(0); });
+
 // Config endpoint to tell frontend which keys are available server-side
-app.get('/api/config', (req, res) => {
+app.get('/api/config', (_req, res) => {
   const config = {
     anthropic: !!process.env.ANTHROPIC_API_KEY,
     gemini: !!process.env.GEMINI_API_KEY,
@@ -54,7 +58,7 @@ app.get('/api/config', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -101,8 +105,10 @@ const API_MAP: Record<string, ProviderConfig> = {
   groq: {
     url: 'https://api.groq.com/openai/v1/chat/completions',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
-    getBody: (code, lang, model) => ({
+    getBody: (code, lang, model, temperature, max_tokens) => ({
       model: model || 'llama-3.3-70b-versatile',
+      temperature: temperature ?? 0.1,
+      max_tokens: max_tokens ?? 2000,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -114,8 +120,10 @@ const API_MAP: Record<string, ProviderConfig> = {
   mistral: {
     url: 'https://api.mistral.ai/v1/chat/completions',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
-    getBody: (code, lang, model) => ({
+    getBody: (code, lang, model, temperature, max_tokens) => ({
       model: model || (['javascript', 'typescript', 'python', 'html', 'css', 'json'].includes(lang) ? 'codestral-latest' : 'mistral-large-latest'),
+      temperature: temperature ?? 0.1,
+      max_tokens: max_tokens ?? 2000,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -127,8 +135,10 @@ const API_MAP: Record<string, ProviderConfig> = {
   deepseek: {
     url: 'https://api.deepseek.com/v1/chat/completions',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
-    getBody: (code, lang, model) => ({
+    getBody: (code, lang, model, temperature, max_tokens) => ({
       model: model || 'deepseek-chat',
+      temperature: temperature ?? 0.1,
+      max_tokens: max_tokens ?? 2000,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -140,9 +150,10 @@ const API_MAP: Record<string, ProviderConfig> = {
   anthropic: {
     url: 'https://api.anthropic.com/v1/messages',
     headers: (key) => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }),
-    getBody: (code, lang, model) => ({
+    getBody: (code, lang, model, temperature, max_tokens) => ({
       model: model || 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
+      max_tokens: max_tokens ?? 2000,
+      temperature: temperature ?? 0,
       system: systemPrompt,
       messages: [{ role: 'user', content: `Analyze this ${lang} code:\n\n${code}` }],
     }),
@@ -151,9 +162,13 @@ const API_MAP: Record<string, ProviderConfig> = {
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
     headers: (key) => ({ 'Content-Type': 'application/json', 'x-goog-api-key': key }),
-    getBody: (code, lang) => ({
+    getBody: (code, lang, model, temperature, max_tokens) => ({
       contents: [{ parts: [{ text: `${systemPrompt}\n\nAnalyze this ${lang} code:\n\n${code}` }] }],
-      generationConfig: { responseMimeType: 'application/json' },
+      generationConfig: { 
+        responseMimeType: 'application/json',
+        temperature: temperature ?? 0.1,
+        maxOutputTokens: max_tokens ?? 2048,
+      },
     }),
     parse: (res: unknown) => (res as GeminiResponse).candidates[0].content.parts[0].text,
   },
@@ -167,23 +182,24 @@ function extractJson(raw: string): unknown {
   return JSON.parse(trimmed.substring(first, last + 1));
 }
 
-function validateAnalysisResult(data: any): AnalysisResult {
+function validateAnalysisResult(data: unknown): AnalysisResult {
+  const obj = data as Record<string, unknown>;
   if (typeof data !== 'object' || data === null) throw new Error('Result must be an object');
-  if (typeof data.score !== 'number') throw new Error('score must be a number');
-  if (!['low', 'medium', 'high', 'critical'].includes(data.complexity)) throw new Error('invalid complexity');
-  if (typeof data.summary !== 'string') throw new Error('summary must be a string');
-  if (!Array.isArray(data.issues)) throw new Error('issues must be an array');
-  if (!Array.isArray(data.strengths) || !data.strengths.every((s: any) => typeof s === 'string')) throw new Error('strengths must be an array of strings');
+  if (typeof obj.score !== 'number') throw new Error('score must be a number');
+  if (!['low', 'medium', 'high', 'critical'].includes(obj.complexity as string)) throw new Error('invalid complexity');
+  if (typeof obj.summary !== 'string') throw new Error('summary must be a string');
+  if (!Array.isArray(obj.issues)) throw new Error('issues must be an array');
+  if (!Array.isArray(obj.strengths) || !obj.strengths.every((s: unknown) => typeof s === 'string')) throw new Error('strengths must be an array of strings');
 
-  data.issues.forEach((issue: any, i: number) => {
-    if (!['bug', 'warning', 'suggestion'].includes(issue.severity)) throw new Error(`issues[${i}].severity is invalid`);
+  (obj.issues as Record<string, unknown>[]).forEach((issue, i: number) => {
+    if (!['bug', 'warning', 'suggestion'].includes(issue.severity as string)) throw new Error(`issues[${i}].severity is invalid`);
     if (typeof issue.title !== 'string') throw new Error(`issues[${i}].title must be a string`);
     if (typeof issue.description !== 'string') throw new Error(`issues[${i}].description must be a string`);
     if (issue.line !== null && typeof issue.line !== 'number') throw new Error(`issues[${i}].line must be number or null`);
     if (issue.fix !== null && typeof issue.fix !== 'string') throw new Error(`issues[${i}].fix must be string or null`);
   });
 
-  return data as AnalysisResult;
+  return obj as unknown as AnalysisResult;
 }
 
 // Retry fetch with backoff
@@ -218,11 +234,12 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       return res.status(429).json({ error: 'Rate limit exceeded' });
     }
 
-    let { code, language, provider, model } = req.body as {
-      code: string;
-      language: string;
-      provider: string;
+    const { code, language } = req.body as { code: string; language: string };
+    let { provider, model, temperature, max_tokens } = req.body as { 
+      provider: string; 
       model?: string;
+      temperature?: number;
+      max_tokens?: number;
     };
 
     if (!code?.trim()) {
@@ -233,7 +250,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       return res.status(400).json({ error: 'Code exceeds 4000 character limit' });
     }
 
-    const VALID_LANGS = LANGUAGES;
+    const VALID_LANGS: readonly string[] = LANGUAGES;
     if (!VALID_LANGS.includes(language)) {
       return res.status(400).json({ error: 'Invalid language' });
     }
@@ -296,14 +313,15 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     const rawText = String(target.parse(data));
     const analysis = extractJson(rawText);
     const validatedAnalysis = validateAnalysisResult(analysis);
+    
+    const latency = Date.now() - startTime;
+    console.log(`Provider ${provider} took ${latency}ms`);
 
-    console.log(`Provider ${provider} took ${Date.now() - startTime}ms`);
-
-    return res.json(validatedAnalysis);
+    return res.json({ ...validatedAnalysis, latency });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('Proxy routing failure:', msg);
-    return res.status(500).json({ error: 'Failed to process AI payload', details: msg });
+    return res.status(500).json({ error: 'Failed to process AI payload' });
   }
 });
 
