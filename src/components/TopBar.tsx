@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, ChevronDown, Zap, Settings } from 'lucide-react';
+import { History, ChevronDown, Zap, Settings, Share2 } from 'lucide-react';
 import type { Provider } from '../types/analysis';
 
 interface TopBarProps {
@@ -10,6 +10,7 @@ interface TopBarProps {
   onAnalyze: () => void;
   onHistoryClick: () => void;
   onSettingsClick: () => void;
+  onShare: () => void;
   isLoading: boolean;
 }
 
@@ -17,7 +18,7 @@ import { LANGUAGES as CONST_LANGUAGES, PROVIDERS } from '../lib/constants';
 
 const LANGUAGES = CONST_LANGUAGES.map(l => ({ label: l === 'auto' ? 'Auto' : l === 'javascript' ? 'JS' : l === 'typescript' ? 'TS' : l.charAt(0).toUpperCase() + l.slice(1), value: l }));
 
-export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, onSettingsClick, isLoading }: TopBarProps) {
+export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, onSettingsClick, onShare, isLoading }: TopBarProps) {
   const [providerOpen, setProviderOpen] = useState(false);
 
   const activeProvider = PROVIDERS.find((p) => p.value === provider) || PROVIDERS[0];
@@ -86,6 +87,14 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
 
       {/* Right actions */}
       <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onShare}
+          className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-mist)] hover:text-white"
+          title="Share Link"
+        >
+          <Share2 size={18} />
+        </button>
+
         <button
           onClick={onSettingsClick}
           className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-mist)] hover:text-white"
