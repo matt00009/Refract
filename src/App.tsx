@@ -1,14 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TopBar } from './components/TopBar';
 import { Editor } from './components/Editor';
 import { Results } from './components/Results';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { Onboarding } from './components/Onboarding';
+import { ToastContainer, ToastType } from './components/Toast';
 import { analyzeCode } from './lib/api';
 import { loadHistory, saveToHistory, clearHistory, LIMIT } from './lib/history';
 import { detectLanguage } from './lib/detect';
 import type { AnalysisResult, HistoryEntry, Provider } from './types/analysis';
+
+interface ToastMessage {
+  id: string;
+  message: string;
+  type: ToastType;
+}
 
 export default function App() {
   const [code, setCode] = useState('');
@@ -20,10 +27,23 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = useCallback((message: string, type: ToastType = 'success') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }, []);
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   useEffect(() => {
     setHistory(loadHistory());
-    
+
     // Load from URL hash if present
     const hash = window.location.hash.substring(1);
     if (hash) {
@@ -53,9 +73,26 @@ export default function App() {
     }
   }, [code, language]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        setHistoryOpen((v) => !v);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleOnboardingComplete = () => {
     localStorage.setItem('rf_onboarding_seen', 'true');
     setShowOnboarding(false);
+    addToast('Welcome to Refract!', 'success');
   };
 
   const handleAnalyze = async () => {
@@ -79,10 +116,11 @@ export default function App() {
       });
 
       setHistory((prev) => [entry, ...prev].slice(0, LIMIT));
+      addToast('Analysis complete', 'success');
     } catch (error) {
       console.error('Analysis failed:', error);
       const msg = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Analysis failed: ${msg}`);
+      addToast(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -93,15 +131,18 @@ export default function App() {
     setLanguage(entry.lang);
     setProvider(entry.provider as Provider);
     setResult(entry.resultCache);
+    addToast('Loaded from history', 'success');
   };
 
   const handleClearHistory = () => {
     clearHistory();
     setHistory([]);
+    addToast('History cleared', 'success');
   };
 
   const handleImport = (imported: HistoryEntry[]) => {
     setHistory(imported);
+    addToast(`Imported ${imported.length} entries`, 'success');
   };
 
   return (
@@ -129,7 +170,7 @@ export default function App() {
         </div>
 
         <div className="md:w-1/2 w-full md:h-full h-1/2 flex flex-col overflow-hidden bg-[var(--rf-forest)] md:border-l border-t md:border-t-0 border-[var(--rf-border)]">
-          <Results result={result} loading={loading} />
+          <Results result={result} loading={loading} onReset={() => setResult(null)} />
         </div>
       </div>
 
@@ -150,6 +191,8 @@ export default function App() {
       {showOnboarding && (
         <Onboarding onComplete={handleOnboardingComplete} />
       )}
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

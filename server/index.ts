@@ -170,7 +170,7 @@ function validateAnalysisResult(data: any): AnalysisResult {
   if (typeof data.summary !== 'string') throw new Error('summary must be a string');
   if (!Array.isArray(data.issues)) throw new Error('issues must be an array');
   if (!Array.isArray(data.strengths) || !data.strengths.every((s: any) => typeof s === 'string')) throw new Error('strengths must be an array of strings');
-  
+
   data.issues.forEach((issue: any, i: number) => {
     if (!['bug', 'warning', 'suggestion'].includes(issue.severity)) throw new Error(`issues[${i}].severity is invalid`);
     if (typeof issue.title !== 'string') throw new Error(`issues[${i}].title must be a string`);
@@ -178,7 +178,7 @@ function validateAnalysisResult(data: any): AnalysisResult {
     if (issue.line !== null && typeof issue.line !== 'number') throw new Error(`issues[${i}].line must be number or null`);
     if (issue.fix !== null && typeof issue.fix !== 'string') throw new Error(`issues[${i}].fix must be string or null`);
   });
-  
+
   return data as AnalysisResult;
 }
 
@@ -188,16 +188,16 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3, ba
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-      
+
       const response = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timeoutId);
-      
+
       if (response.status === 429 && i < retries - 1) {
         // Rate limited, wait and retry
         await new Promise(r => setTimeout(r, backoff * (i + 1)));
         continue;
       }
-      
+
       return response;
     } catch (error) {
       if (i === retries - 1) throw error;
@@ -261,7 +261,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
 
     const envKey = `${provider.toUpperCase()}_API_KEY`;
     let apiKey = process.env[envKey];
-    
+
     // Fallback to client-provided key
     if (!apiKey) {
       const clientKey = req.headers['x-provider-key'];
@@ -275,7 +275,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     }
 
     const startTime = Date.now();
-    
+
     const response = await fetchWithRetry(target.url, {
       method: 'POST',
       headers: target.headers(apiKey),
@@ -292,7 +292,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     const rawText = String(target.parse(data));
     const analysis = extractJson(rawText);
     const validatedAnalysis = validateAnalysisResult(analysis);
-    
+
     console.log(`Provider ${provider} took ${Date.now() - startTime}ms`);
 
     return res.json(validatedAnalysis);

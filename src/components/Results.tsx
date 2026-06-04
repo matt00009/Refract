@@ -9,6 +9,7 @@ import type { AnalysisResult } from '../types/analysis';
 interface ResultsProps {
   result: AnalysisResult | null;
   loading: boolean;
+  onReset: () => void;
 }
 
 function getComplexityColor(complexity: string): string {
@@ -44,7 +45,7 @@ function LoadingSkeleton() {
   );
 }
 
-export function Results({ result, loading }: ResultsProps) {
+export function Results({ result, loading, onReset }: ResultsProps) {
   const [copied, setCopied] = useState(false);
 
   if (loading) {
@@ -67,6 +68,17 @@ export function Results({ result, loading }: ResultsProps) {
 
   return (
     <div className="flex-1 p-6 overflow-y-auto space-y-6 scroll-smooth">
+      {/* Summary Header */}
+      <div className="flex items-center justify-between border-b border-[var(--rf-border)] pb-4 shrink-0">
+        <span className="text-[10px] uppercase tracking-widest text-[var(--rf-border)] font-bold">Analysis Report</span>
+        <button
+          onClick={onReset}
+          className="text-[10px] uppercase tracking-widest text-[var(--rf-ember)] hover:opacity-70 transition-opacity font-bold"
+        >
+          Clear Result
+        </button>
+      </div>
+
       {/* Summary */}
       <motion.div
         initial={{ opacity: 0 }}
