@@ -6,9 +6,24 @@ export async function analyzeCode(
   provider: string,
   model?: string
 ): Promise<AnalysisResult> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  // Get local key if it exists
+  const savedKeys = localStorage.getItem('rf_api_keys');
+  if (savedKeys) {
+    try {
+      const keys = JSON.parse(savedKeys);
+      if (keys[provider]) {
+        headers['X-Provider-Key'] = keys[provider];
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const response = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ code, language, provider, model }),
   });
 

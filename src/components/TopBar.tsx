@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, ChevronDown, Zap } from 'lucide-react';
+import { History, ChevronDown, Zap, Settings } from 'lucide-react';
 import type { Provider } from '../types/analysis';
 
 interface TopBarProps {
@@ -9,6 +9,7 @@ interface TopBarProps {
   onProviderChange: (p: Provider) => void;
   onAnalyze: () => void;
   onHistoryClick: () => void;
+  onSettingsClick: () => void;
   isLoading: boolean;
 }
 
@@ -16,7 +17,7 @@ import { LANGUAGES as CONST_LANGUAGES, PROVIDERS } from '../lib/constants';
 
 const LANGUAGES = CONST_LANGUAGES.map(l => ({ label: l === 'auto' ? 'Auto' : l === 'javascript' ? 'JS' : l === 'typescript' ? 'TS' : l.charAt(0).toUpperCase() + l.slice(1), value: l }));
 
-export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, isLoading }: TopBarProps) {
+export function TopBar({ language, onLanguageChange, provider, onProviderChange, onAnalyze, onHistoryClick, onSettingsClick, isLoading }: TopBarProps) {
   const [providerOpen, setProviderOpen] = useState(false);
 
   const activeProvider = PROVIDERS.find((p) => p.value === provider) || PROVIDERS[0];
@@ -53,7 +54,7 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
             onClick={() => setProviderOpen((v) => !v)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] hover:bg-[var(--rf-surface)] transition-colors"
           >
-            <span className="text-sm leading-none">{activeProvider.icon}</span>
+            <activeProvider.icon className="w-4 h-4 text-[var(--rf-mist)]" />
             <span className="hidden sm:block">{activeProvider.label}</span>
             <ChevronDown size={12} className={`transition-transform ${providerOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -70,7 +71,7 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
                       p.value === provider ? 'text-[var(--rf-volt)]' : 'text-[var(--rf-mist)]'
                     }`}
                   >
-                    <span className="text-sm leading-none">{p.icon}</span>
+                    <p.icon className={`w-4 h-4 ${p.value === provider ? 'text-[var(--rf-volt)]' : 'text-[var(--rf-mist)]'}`} />
                     <span className="flex-1">{p.label}</span>
                     {p.value === provider && (
                       <span className="w-1.5 h-1.5 rounded-full bg-[var(--rf-volt)]" />
@@ -85,6 +86,14 @@ export function TopBar({ language, onLanguageChange, provider, onProviderChange,
 
       {/* Right actions */}
       <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onSettingsClick}
+          className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-mist)] hover:text-white"
+          title="API Settings"
+        >
+          <Settings size={18} />
+        </button>
+
         <button
           onClick={onHistoryClick}
           className="p-1.5 hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors text-[var(--rf-sky)]"

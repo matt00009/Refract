@@ -248,9 +248,18 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     }
 
     const envKey = `${provider.toUpperCase()}_API_KEY`;
-    const apiKey = process.env[envKey];
+    let apiKey = process.env[envKey];
+    
+    // Fallback to client-provided key
     if (!apiKey) {
-      return res.status(500).json({ error: `Missing API key: ${envKey}` });
+      const clientKey = req.headers['x-provider-key'];
+      if (typeof clientKey === 'string' && clientKey.trim()) {
+        apiKey = clientKey.trim();
+      }
+    }
+
+    if (!apiKey) {
+      return res.status(401).json({ error: `Missing API key for ${provider}. Please configure it in settings.` });
     }
 
     const startTime = Date.now();
@@ -279,6 +288,10 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('Proxy routing failure:', msg);
     return res.status(500).json({ error: 'Failed to process AI payload', details: msg });
+  }
+});
+
+app.listen(port, () => console.log(`Refract router on port ${port}`)); AI payload', details: msg });
   }
 });
 

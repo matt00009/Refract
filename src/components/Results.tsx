@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { Share2, Check } from 'lucide-react';
+import { useState } from 'react';
 import { ScoreRing } from './ScoreRing';
 import { IssueCard } from './IssueCard';
 import { EmptyState } from './EmptyState';
@@ -43,6 +45,8 @@ function LoadingSkeleton() {
 }
 
 export function Results({ result, loading }: ResultsProps) {
+  const [copied, setCopied] = useState(false);
+
   if (loading) {
     return (
       <div className="flex-1 p-6 overflow-y-auto">
@@ -55,27 +59,41 @@ export function Results({ result, loading }: ResultsProps) {
     return <EmptyState />;
   }
 
+  const handleCopyResult = () => {
+    navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="flex-1 p-6 overflow-y-auto space-y-6">
+    <div className="flex-1 p-6 overflow-y-auto space-y-6 scroll-smooth">
       {/* Summary */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="text-sm font-semibold"
-        style={{ color: 'var(--rf-volt)' }}
+        className="flex items-start justify-between gap-4"
       >
-        {result.summary}
+        <h2 className="text-sm font-semibold leading-relaxed" style={{ color: 'var(--rf-volt)' }}>
+          {result.summary}
+        </h2>
+        <button
+          onClick={handleCopyResult}
+          className="p-1.5 bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-md hover:bg-[var(--rf-surface)] transition-all text-[var(--rf-mist)]"
+          title="Copy Report JSON"
+        >
+          {copied ? <Check size={14} className="text-[var(--rf-volt)]" /> : <Share2 size={14} />}
+        </button>
       </motion.div>
 
       {/* Metrics row */}
       <div className="grid grid-cols-3 gap-4">
         {/* Score */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rf-card p-4 flex justify-center">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rf-card p-4 flex justify-center will-change-transform">
           <ScoreRing score={result.score} />
         </motion.div>
 
         {/* Complexity */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rf-card p-4 flex flex-col items-center justify-center">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rf-card p-4 flex flex-col items-center justify-center will-change-transform">
           <div className="text-xs uppercase tracking-wider text-[var(--rf-border)] mb-2">Complexity</div>
           <div
             className="px-3 py-1.5 rf-badge"
@@ -86,7 +104,7 @@ export function Results({ result, loading }: ResultsProps) {
         </motion.div>
 
         {/* Issues count */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rf-card p-4 flex flex-col items-center justify-center">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rf-card p-4 flex flex-col items-center justify-center will-change-transform">
           <div className="text-xs uppercase tracking-wider text-[var(--rf-border)] mb-2">Issues</div>
           <div className="text-2xl font-bold" style={{ color: 'var(--rf-volt)' }}>
             {result.issues.length}
@@ -96,7 +114,7 @@ export function Results({ result, loading }: ResultsProps) {
 
       {/* Issues */}
       {result.issues.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="space-y-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="space-y-3 will-change-[opacity]">
           <h3 className="text-xs uppercase tracking-wider text-[var(--rf-border)]">Issues</h3>
           {result.issues.map((issue, i) => (
             <IssueCard key={i} issue={issue} index={i} />
@@ -106,7 +124,7 @@ export function Results({ result, loading }: ResultsProps) {
 
       {/* Strengths */}
       {result.strengths.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="rf-card p-4 space-y-2">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="rf-card p-4 space-y-2 will-change-[opacity]">       
           <h3 className="text-xs uppercase tracking-wider text-[var(--rf-volt)] mb-3">Strengths</h3>
           <ul className="space-y-1">
             {result.strengths.map((strength, i) => (

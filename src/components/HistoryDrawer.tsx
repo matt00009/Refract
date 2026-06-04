@@ -114,6 +114,8 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                       : entry.score >= 50
                         ? 'var(--rf-warn)'
                         : 'var(--rf-ember)';
+                        
+                  const IconComponent = PROVIDER_ICONS[entry.provider];
 
                   return (
                     <button
@@ -129,7 +131,9 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                           {entry.score}
                         </span>
                         <span className="text-[10px] uppercase tracking-wider text-[var(--rf-border)]">{entry.lang}</span>
-                        <span className="ml-auto text-xs leading-none">{PROVIDER_ICONS[entry.provider] || '•'}</span>
+                        <span className="ml-auto flex items-center justify-center text-[var(--rf-mist)]">
+                          {IconComponent ? <IconComponent className="w-3 h-3" /> : '•'}
+                        </span>
                         <span className="text-[10px] text-[var(--rf-border)]">{timeAgo(entry.ts)}</span>
                       </div>
                       <p className="text-[11px] text-[var(--rf-mist)] line-clamp-1 mb-1">{entry.summary}</p>

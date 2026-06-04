@@ -3,6 +3,8 @@ import { TopBar } from './components/TopBar';
 import { Editor } from './components/Editor';
 import { Results } from './components/Results';
 import { HistoryDrawer } from './components/HistoryDrawer';
+import { SettingsModal } from './components/SettingsModal';
+import { Onboarding } from './components/Onboarding';
 import { analyzeCode } from './lib/api';
 import { loadHistory, saveToHistory, clearHistory, LIMIT } from './lib/history';
 import { detectLanguage } from './lib/detect';
@@ -15,11 +17,24 @@ export default function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     setHistory(loadHistory());
+    
+    // Check if onboarding was seen
+    const seen = localStorage.getItem('rf_onboarding_seen');
+    if (!seen) {
+      setShowOnboarding(true);
+    }
   }, []);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('rf_onboarding_seen', 'true');
+    setShowOnboarding(false);
+  };
 
   const handleAnalyze = async () => {
     if (!code.trim()) return;
@@ -76,6 +91,7 @@ export default function App() {
         onProviderChange={setProvider}
         onAnalyze={handleAnalyze}
         onHistoryClick={() => setHistoryOpen(true)}
+        onSettingsClick={() => setSettingsOpen(true)}
         isLoading={loading}
       />
 
@@ -103,6 +119,15 @@ export default function App() {
         onClear={handleClearHistory}
         onImport={handleImport}
       />
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+
+      {showOnboarding && (
+        <Onboarding onComplete={handleOnboardingComplete} />
+      )}
     </div>
   );
 }

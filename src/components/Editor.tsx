@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Copy, Trash2, Check } from 'lucide-react';
 import { highlightCodeToTokens } from '../lib/highlight';
 import { detectLanguage } from '../lib/detect';
 
@@ -16,6 +17,7 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
   const lineNumRef = useRef<HTMLDivElement>(null);
   const [highlightHtml, setHighlightHtml] = useState('');
   const [showPlaceholder, setShowPlaceholder] = useState(code.length === 0);
+  const [copied, setCopied] = useState(false);
 
   const charCount = code.length;
   const maxChars = 4000;
@@ -61,6 +63,18 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
       newCode = newCode.substring(0, maxChars);
     }
     onChange(newCode);
+  };
+
+  const handleCopy = () => {
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleClear = () => {
+    onChange('');
+    textareaRef.current?.focus();
   };
 
   const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -110,6 +124,29 @@ export function Editor({ code, language, onChange, onAnalyze, onLanguageDetect }
     <div className="h-full flex flex-col bg-[var(--rf-depth)] border-r border-[var(--rf-border)]">
       {/* Editor container */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Editor Toolbar */}
+        <div className="h-9 px-4 border-b border-[var(--rf-border)] bg-[var(--rf-forest)]/30 flex items-center justify-between shrink-0">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--rf-border)] font-bold">Input Buffer</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleCopy}
+              disabled={!code}
+              className="p-1.5 hover:bg-[var(--rf-forest)] rounded-md transition-colors text-[var(--rf-border)] hover:text-white disabled:opacity-30"
+              title="Copy code"
+            >
+              {copied ? <Check size={14} className="text-[var(--rf-volt)]" /> : <Copy size={14} />}
+            </button>
+            <button
+              onClick={handleClear}
+              disabled={!code}
+              className="p-1.5 hover:bg-[var(--rf-forest)] rounded-md transition-colors text-[var(--rf-border)] hover:text-[var(--rf-ember)] disabled:opacity-30"
+              title="Clear editor"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+
         {/* Line numbers + code */}
         <div className="flex flex-1 overflow-hidden">
           {/* Line numbers */}
