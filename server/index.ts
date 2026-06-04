@@ -37,6 +37,18 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Config endpoint to tell frontend which keys are available server-side
+app.get('/api/config', (req, res) => {
+  const config = {
+    anthropic: !!process.env.ANTHROPIC_API_KEY,
+    gemini: !!process.env.GEMINI_API_KEY,
+    mistral: !!process.env.MISTRAL_API_KEY,
+    groq: !!process.env.GROQ_API_KEY,
+    deepseek: !!process.env.DEEPSEEK_API_KEY,
+  };
+  res.json(config);
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -288,10 +300,6 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('Proxy routing failure:', msg);
     return res.status(500).json({ error: 'Failed to process AI payload', details: msg });
-  }
-});
-
-app.listen(port, () => console.log(`Refract router on port ${port}`)); AI payload', details: msg });
   }
 });
 

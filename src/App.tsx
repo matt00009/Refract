@@ -24,12 +24,34 @@ export default function App() {
   useEffect(() => {
     setHistory(loadHistory());
     
+    // Load from URL hash if present
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      try {
+        const decoded = JSON.parse(atob(hash));
+        if (decoded.code) setCode(decoded.code);
+        if (decoded.lang) setLanguage(decoded.lang);
+      } catch (e) {
+        console.error('Failed to parse share link:', e);
+      }
+    }
+
     // Check if onboarding was seen
     const seen = localStorage.getItem('rf_onboarding_seen');
     if (!seen) {
       setShowOnboarding(true);
     }
   }, []);
+
+  // Sync code to hash for sharing
+  useEffect(() => {
+    if (code) {
+      const state = btoa(JSON.stringify({ code, lang: language }));
+      window.history.replaceState(null, '', `#${state}`);
+    } else {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [code, language]);
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('rf_onboarding_seen', 'true');
