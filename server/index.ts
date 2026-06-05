@@ -1,14 +1,62 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import type { AnalysisResult } from '../src/types/analysis.js';
 import { LANGUAGES } from '../src/lib/constants.js';
 
 const app = express();
 const port = 3001;
 
-app.use(express.json());
+// ── Security Headers (Helmet) ───────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false, // Handled by Vite in dev
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(express.json({ limit: '16kb' })); // Prevent large body attacks
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+
+// ── Prompt Injection Guard ──────────────────────────────────
+const INJECTION_PATTERNS = [
+  /ignore\s+previous\s+instructions/i,
+  /system\s*prompt/i,
+  /<\|im_start\|>/i,
+  /<\|im_end\|>/i,
+  /\[INST\]/i,
+  /<<SYS>>/i,
+  /you\s+are\s+now/i,
+  /forget\s+(all|everything|previous)/i,
+];
+
+function detectPromptInjection(code: string): boolean {
+  return INJECTION_PATTERNS.some((p) => p.test(code));
+}
+
+/** Strip null bytes and dangerous control characters from user input */
+/* eslint-disable no-control-regex */
+function sanitizeInput(str: string): string {
+  return str
+    .replace(/\x00/g, '')            // null bytes
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // control chars (keep \t\n\r)
+    .trim();
+}
+/* eslint-enable no-control-regex */
+
+/** Validate API key format per provider (basic sanity check) */
+const KEY_PATTERNS: Record<string, RegExp> = {
+  anthropic: /^sk-ant-/,
+  groq:      /^gsk_/,
+  mistral:   /^[A-Za-z0-9]{32,}/,
+  deepseek:  /^sk-/,
+  gemini:    /^AI[za-zA-Z0-9_-]{30,}/,
+};
+
+function isValidKeyFormat(provider: string, key: string): boolean {
+  const pattern = KEY_PATTERNS[provider];
+  if (!pattern) return true; // Unknown provider — allow and let the API decide
+  return pattern.test(key);
+}
 
 // Enterprise-grade sliding window rate limiter
 const rateLimiter = new Map<string, number[]>();
@@ -62,23 +110,34 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const systemPrompt = `You are a senior software engineer performing a precise code review.
-Respond ONLY with a valid JSON object. No markdown. No explanation outside JSON. No preamble.
+const systemPrompt = `You are a senior software engineer performing a precise, helpful code review.
+Respond ONLY with a valid JSON object following this exact schema without markdown wrap:
 
-Schema:
 {
   "score": number,
   "complexity": "low" | "medium" | "high" | "critical",
   "summary": string,
-  "issues": [{"severity": "bug" | "warning" | "suggestion", "title": string, "description": string, "line": number | null, "fix": string | null}],
+  "issues": [
+    {
+      "severity": "bug" | "warning" | "suggestion",
+      "title": string,
+      "description": string,
+      "line": number | null,
+      "vulnerable_code": string | null,
+      "fix_code": string | null,
+      "fix_explanation": string | null
+    }
+  ],
   "strengths": string[]
 }
 
-Rules:
+STRICT FORMATTING RULES — NEVER BREAK THESE:
+- "vulnerable_code" MUST contain EXCLUSIVELY the exact bad code lines (1-4 lines), never prose. Set null if no specific snippet.
+- "fix_code" MUST contain EXCLUSIVELY clean, valid, runnable code lines that fix the issue. NEVER write plain prose explanation inside "fix_code". Set null if no fix.
+- "fix_explanation" MUST contain clean, multi-step structural instructions in French detailing the exact procedure to solve the issue (separated by newlines, do not use bullet points or numbering prefix inside the string, just return clean steps separated by newlines).
+- "description" is the ONLY field where you can write general explanation prose.
 - Never hallucinate line numbers. Only cite lines you can count.
 - If code is excellent, score 90+ and say so clearly.
-- Fix snippets must be working code, not pseudocode.
-- Be direct. No "consider" or "you might want to". State facts.
 - max 8 issues, 2-3 strengths.`;
 
 // Provider Response Interfaces
@@ -196,7 +255,18 @@ function validateAnalysisResult(data: unknown): AnalysisResult {
     if (typeof issue.title !== 'string') throw new Error(`issues[${i}].title must be a string`);
     if (typeof issue.description !== 'string') throw new Error(`issues[${i}].description must be a string`);
     if (issue.line !== null && typeof issue.line !== 'number') throw new Error(`issues[${i}].line must be number or null`);
-    if (issue.fix !== null && typeof issue.fix !== 'string') throw new Error(`issues[${i}].fix must be string or null`);
+    if (issue.vulnerable_code !== null && issue.vulnerable_code !== undefined && typeof issue.vulnerable_code !== 'string') throw new Error(`issues[${i}].vulnerable_code must be string or null`);
+    
+    // Validate fix, fix_code, fix_explanation
+    if (issue.fix !== undefined && issue.fix !== null && typeof issue.fix !== 'string') throw new Error(`issues[${i}].fix must be string or null`);
+    if (issue.fix_code !== undefined && issue.fix_code !== null && typeof issue.fix_code !== 'string') throw new Error(`issues[${i}].fix_code must be string or null`);
+    if (issue.fix_explanation !== undefined && issue.fix_explanation !== null && typeof issue.fix_explanation !== 'string') throw new Error(`issues[${i}].fix_explanation must be string or null`);
+
+    // Ensure fields default to null if missing, mapping compatibility
+    if (issue.vulnerable_code === undefined) issue.vulnerable_code = null;
+    if (issue.fix_code === undefined) issue.fix_code = (issue.fix as string | null) || null;
+    if (issue.fix_explanation === undefined) issue.fix_explanation = null;
+    if (issue.fix === undefined) issue.fix = (issue.fix_code as string | null) || null;
   });
 
   return obj as unknown as AnalysisResult;
@@ -235,19 +305,28 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     }
 
     const { code, language } = req.body as { code: string; language: string };
-    let { provider, model, temperature, max_tokens } = req.body as { 
-      provider: string; 
+    let { provider, model } = req.body as {
+      provider: string;
       model?: string;
+    };
+    // temperature and max_tokens are forwarded to getBody for provider customisation
+    const { temperature, max_tokens } = req.body as {
       temperature?: number;
       max_tokens?: number;
     };
 
-    if (!code?.trim()) {
+    const rawCode = typeof code === 'string' ? sanitizeInput(code) : '';
+
+    if (!rawCode) {
       return res.status(400).json({ error: 'Code context is empty' });
     }
 
-    if (code.length > 4000) {
+    if (rawCode.length > 4000) {
       return res.status(400).json({ error: 'Code exceeds 4000 character limit' });
+    }
+
+    if (detectPromptInjection(rawCode)) {
+      return res.status(400).json({ error: 'Invalid input detected' });
     }
 
     const VALID_LANGS: readonly string[] = LANGUAGES;
@@ -262,7 +341,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
 
     // Auto-routing logic
     if (!provider || provider === 'auto') {
-      const size = code.length;
+      const size = rawCode.length;
       if (size < 3500 && ['javascript', 'typescript', 'python', 'html', 'css', 'json'].includes(language)) {
         provider = 'mistral';
         model = model || 'codestral-latest';
@@ -295,12 +374,17 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       return res.status(401).json({ error: `Missing API key for ${provider}. Please configure it in settings.` });
     }
 
+    // Validate key format before sending to provider
+    if (!isValidKeyFormat(provider, apiKey)) {
+      return res.status(401).json({ error: `Invalid API key format for ${provider}.` });
+    }
+
     const startTime = Date.now();
 
     const response = await fetchWithRetry(target.url, {
       method: 'POST',
       headers: target.headers(apiKey),
-      body: JSON.stringify(target.getBody(code, language, model || '')),
+      body: JSON.stringify(target.getBody(rawCode, language, model || '', temperature, max_tokens)),
     });
 
     if (!response.ok) {

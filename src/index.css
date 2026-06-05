@@ -4,56 +4,77 @@
 
 @layer base {
   :root {
-    --rf-void: #080B0F;
-    --rf-depth: #0D1117;
-    --rf-forest: #141E1A;
+    --rf-void:    #080B0F;
+    --rf-depth:   #0D1117;
+    --rf-forest:  #141E1A;
     --rf-surface: #1E2D28;
-    --rf-border: #2A3D35;
-    --rf-volt: #A8FF3E;
-    --rf-sky: #79C0FF;
-    --rf-ember: #FF9070;
-    --rf-warn: #FFD166;
-    --rf-mist: #E8F0E0;
+    --rf-border:  #2A3D35;
+    --rf-volt:    #A8FF3E;
+    --rf-sky:     #79C0FF;
+    --rf-ember:   #FF9070;
+    --rf-warn:    #FFD166;
+    --rf-mist:    #E8F0E0;
   }
 
-  * , *::before, *::after {
+  *, *::before, *::after {
     border-color: var(--rf-border);
   }
 
   body {
     @apply bg-[var(--rf-void)] text-[var(--rf-mist)] font-sans antialiased;
-    background-color: var(--rf-void);
-    background-image: none;
     margin: 0;
   }
-  
+
   ::selection {
-    @apply bg-[var(--rf-volt)] text-slate-950;
+    background-color: var(--rf-volt);
+    color: #020408;
   }
 
-  /* Custom WebKit Scrollbars */
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+  /* ── Branded Scrollbars ─────────────────────────── */
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: var(--rf-void); }
+  ::-webkit-scrollbar-thumb  { background: var(--rf-border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--rf-volt); }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rf-border) var(--rf-void);
   }
-  ::-webkit-scrollbar-track {
-    background: var(--rf-void);
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--rf-border);
-    border-radius: 2px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--rf-volt);
+  *:hover {
+    scrollbar-color: var(--rf-volt) var(--rf-void);
   }
 }
 
 @layer components {
+
+  /* ── Typography ─────────────────────────────────── */
   .rf-mono {
     @apply font-mono tracking-tight;
   }
 
-  /* Precision Brutalist Card */
+  /** Micro-caps — signature typographique Refract */
+  .rf-micro-caps {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .rf-code-sm {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    line-height: 20px;
+  }
+
+  .rf-code-xs {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    line-height: 18px;
+  }
+
+  /* ── Cards & Surfaces ───────────────────────────── */
   .rf-card {
     border: 0.5px solid var(--rf-border);
     border-radius: 10px;
@@ -61,7 +82,13 @@
     box-shadow: none;
   }
 
-  /* Micro status badges */
+  .rf-card-forest {
+    border: 0.5px solid var(--rf-border);
+    border-radius: 8px;
+    background-color: var(--rf-forest);
+  }
+
+  /* ── Badges ─────────────────────────────────────── */
   .rf-badge {
     border: 0.5px solid var(--rf-border);
     border-radius: 6px;
@@ -69,7 +96,7 @@
     @apply px-2.5 py-1 text-xs font-semibold tracking-wide uppercase;
   }
 
-  /* Solid Volt Button (No Gradients, No Shadows) */
+  /* ── Buttons ────────────────────────────────────── */
   .rf-btn-volt {
     background-color: var(--rf-volt);
     color: var(--rf-void);
@@ -77,8 +104,143 @@
     border: none;
   }
 
+  .rf-btn-ghost {
+    @apply w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer;
+    border: 0.5px solid var(--rf-border);
+    background-color: var(--rf-forest);
+    color: rgba(232, 240, 224, 0.6); /* --rf-mist at 60% */
+  }
+
+  .rf-btn-ghost:hover {
+    color: #ffffff;
+    border-color: rgba(168, 255, 62, 0.4); /* --rf-volt at 40% */
+  }
+
+  /* ── Border utilities ───────────────────────────── */
   .border-hairline {
     border-width: 0.5px;
     border-color: var(--rf-border);
+  }
+
+  /* ── Dot Matrix Loader (native — no external dep) ── */
+  .rf-dot-loader {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .rf-dot-loader span {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--rf-volt);
+    animation: dot-pulse 1.4s ease-in-out infinite;
+  }
+
+  .rf-dot-loader span:nth-child(2) { animation-delay: 0.2s; }
+  .rf-dot-loader span:nth-child(3) { animation-delay: 0.4s; }
+  .rf-dot-loader span:nth-child(4) { animation-delay: 0.6s; }
+  .rf-dot-loader span:nth-child(5) { animation-delay: 0.8s; }
+
+  /* ── Scan-line effect (loading overlay) ─────────── */
+  .rf-scan {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .rf-scan::after {
+    content: '';
+    position: absolute;
+    inset-x: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--rf-volt) 50%,
+      transparent 100%
+    );
+    animation: scan-line 3s linear infinite;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  /* ── Volt Glow (score ≥ 90) ─────────────────────── */
+  .rf-volt-glow {
+    animation: volt-glow 2.5s ease-in-out infinite;
+    border-radius: 50%;
+  }
+
+  /* ── Slide-up entry ─────────────────────────────── */
+  .rf-slide-up {
+    animation: slide-up 0.25s ease-out forwards;
+  }
+
+  /* ── Vulnerable code panel ──────────────────────── */
+  .rf-panel-vulnerable {
+    background-color: rgba(255, 144, 112, 0.02);
+    border: 0.5px solid rgba(255, 144, 112, 0.15);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .rf-panel-vulnerable-header {
+    padding: 6px 12px;
+    border-bottom: 0.5px solid rgba(255, 144, 112, 0.15);
+    color: var(--rf-ember);
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* ── Secure fix panel ───────────────────────────── */
+  .rf-panel-fix {
+    background-color: rgba(168, 255, 62, 0.01);
+    border: 0.5px solid rgba(168, 255, 62, 0.20);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .rf-panel-fix-header {
+    padding: 6px 12px;
+    border-bottom: 0.5px solid rgba(168, 255, 62, 0.20);
+    color: var(--rf-volt);
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* ── Custom Scrollbar for Diff Code Windows ─────────────────────────── */
+  .diff-scrollbar::-webkit-scrollbar {
+    width: 3px !important;
+    height: 3px !important;
+  }
+  .diff-scrollbar::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+  .diff-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--rf-border) !important;
+    border-radius: 1.5px !important;
+  }
+  .diff-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--rf-volt) !important;
+  }
+  .diff-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rf-border) transparent;
+  }
+}
+
+@layer utilities {
+  .text-shadow-volt {
+    text-shadow: 0 0 12px rgba(168, 255, 62, 0.5);
   }
 }

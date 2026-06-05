@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Key, CheckCircle, AlertTriangle } from 'lucide-react';
+import { X, Save, Key, Sliders, Keyboard, CheckCircle, AlertTriangle } from 'lucide-react';
 import { PROVIDERS } from '../lib/constants';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface SettingsModalProps {
   open: boolean;
@@ -9,198 +10,251 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(open, onClose);
+
   const [serverConfig, setServerConfig] = useState<Record<string, boolean>>({});
-  const [localKeys, setLocalKeys] = useState<Record<string, string>>({});
-  const [temperature, setTemperature] = useState(0.1);
-  const [maxTokens, setMaxTokens] = useState(2000);
-  const [loading, setLoading] = useState(true);
+  const [keys, setKeys] = useState<Record<string, string>>({});
+  const [temperature, setTemperature] = useState<number>(0.1);
+  const [maxTokens, setMaxTokens] = useState<number>(2000);
+  const [loading, setLoading] = useState<boolean>(true);
 
+  // Load configuration and server config on open
   useEffect(() => {
-    if (open) {
-      // Fetch which keys are configured on the server
-      fetch('/api/config')
-        .then((res) => res.json())
-        .then((data) => {
-          setServerConfig(data);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+    if (!open) return;
 
-      // Load locally saved keys
-      const saved = localStorage.getItem('rf_api_keys');
-      if (saved) {
-        try {
-          setLocalKeys(JSON.parse(saved));
-        } catch {
-          // ignore
-        }
+    setLoading(true);
+    fetch('/api/config')
+      .then((res) => res.json())
+      .then((data) => {
+        setServerConfig(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+
+    // Load locally saved keys
+    const savedKeys = localStorage.getItem('rf_api_keys');
+    if (savedKeys) {
+      try {
+        setKeys(JSON.parse(savedKeys));
+      } catch (e) {
+        console.error('Failed to parse rf_api_keys:', e);
       }
-
-      // Load advanced settings
-      const savedTemp = localStorage.getItem('rf_temperature');
-      if (savedTemp) setTemperature(parseFloat(savedTemp));
-      
-      const savedTokens = localStorage.getItem('rf_max_tokens');
-      if (savedTokens) setMaxTokens(parseInt(savedTokens));
+    } else {
+      setKeys({});
     }
+
+    // Load advanced settings
+    const savedTemp = localStorage.getItem('rf_temperature');
+    if (savedTemp) setTemperature(parseFloat(savedTemp));
+
+    const savedTokens = localStorage.getItem('rf_max_tokens');
+    if (savedTokens) setMaxTokens(parseInt(savedTokens, 10));
   }, [open]);
 
-  const handleKeyChange = (provider: string, val: string) => {
-    const newKeys = { ...localKeys, [provider]: val };
-    if (!val) delete newKeys[provider];
-    
-    setLocalKeys(newKeys);
-    localStorage.setItem('rf_api_keys', JSON.stringify(newKeys));
+  const handleKeyChange = (provider: string, value: string) => {
+    setKeys((prev) => {
+      const next = { ...prev, [provider]: value };
+      if (!value) delete next[provider];
+      return next;
+    });
   };
 
-  const handleTempChange = (val: number) => {
-    setTemperature(val);
-    localStorage.setItem('rf_temperature', val.toString());
-  };
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('rf_api_keys', JSON.stringify(keys));
+    localStorage.setItem('rf_temperature', temperature.toString());
+    localStorage.setItem('rf_max_tokens', maxTokens.toString());
+    onClose();
 
-  const handleTokensChange = (val: number) => {
-    setMaxTokens(val);
-    localStorage.setItem('rf_max_tokens', val.toString());
+    // Notify components that settings were updated
+    window.dispatchEvent(new Event('rf_settings_updated'));
   };
 
   return (
     <AnimatePresence>
       {open && (
         <>
+          {/* Backdrop Fade */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
+            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[80]"
+          />
+
+          {/* Modal Container */}
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-[90] pointer-events-none">
             <motion.div
-              onClick={(e) => e.stopPropagation()}
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[10px] w-full max-w-md overflow-hidden"
+              ref={focusTrapRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Application Settings"
+              initial={{ opacity: 0, y: 15, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="pointer-events-auto w-full max-w-[500px] max-h-[85vh] bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-lg flex flex-col overflow-hidden shadow-2xl"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--rf-border)]">
+              {/* FIXED HEADER */}
+              <div className="h-12 px-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-between shrink-0 select-none">
                 <div className="flex items-center gap-2 text-[var(--rf-volt)]">
-                  <Key size={18} />
-                  <h2 className="font-bold tracking-tight">API Providers</h2>
+                  <Sliders size={14} />
+                  <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
+                    TERMINAL // CONFIGURATION
+                  </span>
                 </div>
-                <button onClick={onClose} className="p-1.5 hover:bg-[var(--rf-forest)] rounded-md transition-colors text-[var(--rf-mist)] hover:text-white">
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 space-y-4">
-                <div className="bg-[var(--rf-forest)] p-3 rounded-lg flex gap-3 text-sm text-[var(--rf-mist)] border border-[var(--rf-border)]">
-                  <AlertTriangle className="text-[var(--rf-warn)] shrink-0" size={18} />
-                  <p>
-                    Provide your own API keys below. They are saved securely in your browser's local storage and sent only to the Refract proxy.
-                  </p>
-                </div>
-
-                <div className="space-y-4 mt-6">
-                  {loading ? (
-                    <div className="animate-pulse flex gap-4 items-center justify-center h-20 text-[var(--rf-mist)]/50">
-                      Loading server config...
-                    </div>
-                  ) : (
-                    PROVIDERS.filter((p) => p.value !== 'auto').map((p) => {
-                      const Icon = p.icon;
-                      const isServerConfigured = serverConfig[p.value];
-                      
-                      return (
-                        <div key={p.value} className="flex flex-col gap-1.5">
-                          <label className="flex items-center justify-between text-xs font-medium text-[var(--rf-mist)]">
-                            <span className="flex items-center gap-1.5">
-                              <Icon className="w-3.5 h-3.5" />
-                              {p.label}
-                            </span>
-                            {isServerConfigured && (
-                              <span className="flex items-center gap-1 text-[var(--rf-volt)] text-[10px] uppercase tracking-wider">
-                                <CheckCircle size={10} /> Active on server
-                              </span>
-                            )}
-                          </label>
-                          <input
-                            type="password"
-                            placeholder={isServerConfigured ? 'Using server config (Override optional)' : `Enter ${p.label} API Key`}
-                            value={localKeys[p.value] || ''}
-                            onChange={(e) => handleKeyChange(p.value, e.target.value)}
-                            className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] px-3 py-2 text-sm text-white placeholder-[var(--rf-mist)]/30 focus:outline-none focus:border-[var(--rf-volt)] focus:ring-1 focus:ring-[var(--rf-volt)] transition-all"
-                          />
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                <div className="pt-4 border-t border-[var(--rf-border)] space-y-4">
-                  <h3 className="text-[10px] uppercase tracking-widest text-[var(--rf-border)] font-bold">Model Parameters</h3>
-                  
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] text-[var(--rf-mist)]">
-                      <span>Temperature: {temperature}</span>
-                      <span className="text-[var(--rf-border)]">Precise ↔ Creative</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={temperature}
-                      onChange={(e) => handleTempChange(parseFloat(e.target.value))}
-                      className="w-full accent-[var(--rf-volt)] cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] text-[var(--rf-mist)]">
-                      <span>Max Response Tokens: {maxTokens}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="500"
-                      max="4000"
-                      step="100"
-                      value={maxTokens}
-                      onChange={(e) => handleTokensChange(parseInt(e.target.value))}
-                      className="w-full accent-[var(--rf-volt)] cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-[var(--rf-border)]">
-                  <h3 className="text-[10px] uppercase tracking-widest text-[var(--rf-border)] font-bold mb-3">Keyboard Shortcuts</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { key: 'Cmd/Ctrl + Enter', desc: 'Analyze Code' },
-                      { key: 'Cmd/Ctrl + ,', desc: 'Open Settings' },
-                      { key: 'Cmd/Ctrl + H', desc: 'Toggle History' },
-                      { key: 'Cmd/Ctrl + F', desc: 'Toggle Focus Mode' },
-                    ].map((s) => (
-                      <div key={s.key} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-mono text-[var(--rf-volt)]">{s.key}</span>
-                        <span className="text-[10px] text-[var(--rf-mist)]/50">{s.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-6 py-4 bg-[var(--rf-forest)] border-t border-[var(--rf-border)] flex justify-end">
                 <button
                   onClick={onClose}
-                  className="px-6 py-2 bg-[var(--rf-volt)] text-[var(--rf-void)] text-sm font-bold rounded-[6px] hover:opacity-90 transition-opacity cursor-pointer"
+                  aria-label="Close settings"
+                  className="p-1.5 hover:bg-[var(--rf-forest)] rounded transition-colors text-[var(--rf-mist)]/50 hover:text-white cursor-pointer"
                 >
-                  Done
+                  <X size={16} />
                 </button>
               </div>
+
+              {/* SCROLLABLE CONTENT BODY */}
+              <form onSubmit={handleSave} className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-5 space-y-6 diff-scrollbar bg-[var(--rf-depth)]">
+                  
+                  {/* Banner Info */}
+                  <div className="bg-[var(--rf-forest)] p-3 rounded-lg flex gap-3 text-xs text-[var(--rf-mist)] border border-[var(--rf-border)] select-none">
+                    <AlertTriangle className="text-[var(--rf-warn)] shrink-0 animate-pulse" size={16} />
+                    <p className="leading-relaxed">
+                      Provide your own API keys below. They are saved securely in your browser's local storage and sent only to the Refract proxy.
+                    </p>
+                  </div>
+
+                  {/* Section: API Keys */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5 select-none">
+                      <Key size={12} />
+                      <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">API Credentials (BYOK)</h3>
+                    </div>
+                    
+                    {loading ? (
+                      <div className="animate-pulse flex items-center justify-center h-20 text-[var(--rf-mist)]/40 text-xs font-mono">
+                        Configuring server parameters...
+                      </div>
+                    ) : (
+                      PROVIDERS.filter((p) => p.value !== 'auto').map((p) => {
+                        const Icon = p.icon;
+                        const isServerConfigured = serverConfig[p.value];
+                        
+                        return (
+                          <div key={p.value} className="flex flex-col gap-1.5">
+                            <label htmlFor={`key-${p.value}`} className="flex items-center justify-between text-[10px] font-mono text-[var(--rf-mist)]/60 capitalize">
+                              <span className="flex items-center gap-1.5">
+                                <Icon className="w-3.5 h-3.5 text-[var(--rf-sky)]" />
+                                {p.label} API Key
+                              </span>
+                              {isServerConfigured && (
+                                <span className="flex items-center gap-1 text-[var(--rf-volt)] text-[9px] uppercase tracking-wider font-semibold">
+                                  <CheckCircle size={10} /> Active on server
+                                </span>
+                              )}
+                            </label>
+                            <input
+                              id={`key-${p.value}`}
+                              type="password"
+                              autoComplete="off"
+                              placeholder={isServerConfigured ? 'Using server config (Override optional)' : `Enter ${p.label} API Key`}
+                              value={keys[p.value] || ''}
+                              onChange={(e) => handleKeyChange(p.value, e.target.value)}
+                              className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] px-3 py-1.5 text-xs font-mono text-white placeholder-[var(--rf-mist)]/20 focus:outline-none focus:border-[var(--rf-volt)]/50 focus:ring-1 focus:ring-[var(--rf-volt)]/50 transition-colors"
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Section: Model Parameters */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5 select-none">
+                      <Sliders size={12} />
+                      <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">Hyperparameters</h3>
+                    </div>
+
+                    {/* Temperature Slider */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between font-mono text-[10px] select-none">
+                        <span className="text-[var(--rf-mist)]/60">Temperature: <strong className="text-[var(--rf-volt)]">{temperature.toFixed(1)}</strong></span>
+                        <span className="text-[var(--rf-border)]">Precise ↔ Creative</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.0"
+                        max="1.0"
+                        step="0.1"
+                        value={temperature}
+                        onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                        className="w-full h-1 bg-[var(--rf-forest)] rounded-lg appearance-none cursor-pointer accent-[var(--rf-volt)] border border-[var(--rf-border)]"
+                      />
+                    </div>
+
+                    {/* Max Tokens Slider */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between font-mono text-[10px] select-none">
+                        <span className="text-[var(--rf-mist)]/60">Max Response Tokens: <strong className="text-[var(--rf-sky)]">{maxTokens}</strong></span>
+                      </div>
+                      <input
+                        type="range"
+                        min="256"
+                        max="4096"
+                        step="128"
+                        value={maxTokens}
+                        onChange={(e) => setMaxTokens(parseInt(e.target.value, 10))}
+                        className="w-full h-1 bg-[var(--rf-forest)] rounded-lg appearance-none cursor-pointer accent-[var(--rf-sky)] border border-[var(--rf-border)]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Section: Keyboard Shortcuts */}
+                  <div className="space-y-2 select-none">
+                    <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5">
+                      <Keyboard size={12} />
+                      <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">System Bindings</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {[
+                        { key: 'Ctrl + Enter', desc: 'Execute Analysis' },
+                        { key: 'Ctrl + H', desc: 'Toggle History' },
+                        { key: 'Ctrl + F', desc: 'Toggle Focus Mode' },
+                        { key: 'Ctrl + ,', desc: 'System Configuration' },
+                      ].map((shortcut, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-[6px] border border-[var(--rf-border)] bg-[rgba(8,11,15,0.2)] font-mono text-[10px]">
+                          <span className="text-[var(--rf-mist)]/40">{shortcut.desc}</span>
+                          <kbd className="bg-[var(--rf-forest)] border border-[var(--rf-border)] px-1.5 py-0.5 rounded text-[9px] text-[var(--rf-volt)] font-semibold">
+                            {shortcut.key}
+                          </kbd>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* FIXED FOOTER ACTIONS */}
+                <div className="h-14 px-4 border-t border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-end gap-2 shrink-0 select-none">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-1.5 rounded-[6px] border border-[var(--rf-border)] text-xs font-mono font-medium text-[var(--rf-mist)]/60 hover:text-white hover:bg-[var(--rf-forest)] transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-4 py-1.5 rounded-[6px] bg-[var(--rf-volt)] text-[var(--rf-void)] text-xs font-mono font-bold hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <Save size={13} />
+                    Save Changes
+                  </button>
+                </div>
+              </form>
             </motion.div>
-          </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

@@ -15,6 +15,7 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
   const RADIUS = 60;
   const circumference = 2 * Math.PI * RADIUS; // ~377
   const strokeDashoffset = circumference - (normalizedScore / 100) * circumference;
+  const isExcellent = normalizedScore >= 90;
 
   const getColor = () => {
     if (normalizedScore < 50) return 'var(--rf-ember)';
@@ -23,8 +24,12 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
   };
 
   return (
-    <div className="relative w-32 h-32 select-none">
-      <svg className="absolute inset-0 transform -rotate-90" viewBox="0 0 128 128" aria-label={`Score: ${Math.round(normalizedScore)} out of 100`}>
+    <div className={`relative w-32 h-32 select-none ${isExcellent ? 'rf-volt-glow' : ''}`}>
+      <svg
+        className="absolute inset-0 transform -rotate-90"
+        viewBox="0 0 128 128"
+        aria-label={`Score: ${Math.round(normalizedScore)} out of 100`}
+      >
         {/* Track circle */}
         <circle cx="64" cy="64" r={RADIUS} fill="transparent" stroke="var(--rf-border)" strokeWidth="2" />
         {/* Progress circle */}
@@ -44,13 +49,17 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold font-mono" style={{ color: getColor() }}>
+        <span
+          className={`text-3xl font-bold font-mono ${isExcellent ? 'text-shadow-volt' : ''}`}
+          style={{ color: getColor() }}
+        >
           {Math.round(normalizedScore)}
         </span>
         <span className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/40 mt-0.5">
-          SCORE
+          {isExcellent ? 'EXCELLENT' : 'SCORE'}
         </span>
       </div>
     </div>
   );
 });
+

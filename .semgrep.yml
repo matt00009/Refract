@@ -1,0 +1,58 @@
+rules:
+  # ── CORS Security ──────────────────────────────────────────────────
+  - id: refract-cors-wildcard
+    pattern: cors({ origin: "*" })
+    message: "CORS wildcard detected — restrict origin to specific domain"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # ── XSS Vectors ────────────────────────────────────────────────────
+  - id: refract-dangerous-innerhtml
+    pattern: dangerouslySetInnerHTML={{ __html: $X }}
+    message: "XSS surface — verify $X is fully escaped before rendering"
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # ── Secret leakage ─────────────────────────────────────────────────
+  - id: refract-hardcoded-api-key
+    patterns:
+      - pattern: |
+          const $KEY = "sk-..."
+      - pattern: |
+          const $KEY = "gsk_..."
+      - pattern: |
+          const $KEY = "AIza..."
+    message: "Hardcoded API key detected — move to environment variable"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: refract-console-log-key
+    pattern: console.log(..., $KEY, ...)
+    message: "API key may be logged — ensure sensitive values are redacted"
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # ── Express Security ────────────────────────────────────────────────
+  - id: refract-eval-usage
+    pattern: eval($X)
+    message: "eval() is dangerous — use JSON.parse() or safer alternatives"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: refract-no-input-validation
+    pattern: |
+      app.post($PATH, async ($REQ, $RES) => {
+        const { $VAR } = $REQ.body;
+        ...
+      })
+    message: "Ensure all req.body fields are validated before use"
+    severity: INFO
+    languages: [javascript, typescript]
+
+  # ── Prompt Injection ────────────────────────────────────────────────
+  - id: refract-raw-user-input-to-llm
+    pattern: |
+      messages: [{role: "user", content: $CODE}]
+    message: "User content sent to LLM — ensure prompt injection guard is applied"
+    severity: WARNING
+    languages: [javascript, typescript]

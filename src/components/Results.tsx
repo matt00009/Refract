@@ -25,22 +25,38 @@ function getComplexityColor(complexity: Complexity): string {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse" role="status" aria-busy="true">
-      <span className="sr-only">Analyzing code...</span>
-      <div className="flex flex-col items-center justify-center space-y-6 py-6 border-b border-[var(--rf-border)]">
-        {/* Score Ring Skeleton */}
-        <div className="w-32 h-32 rounded-full border-2 border-[var(--rf-border)]" />
-        {/* Summary Card Skeleton */}
-        <div className="w-full max-w-md h-16 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px]" />
-        {/* Grid Skeleton */}
-        <div className="w-full max-w-md grid grid-cols-2 gap-4">
-          <div className="h-12 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px]" />
-          <div className="h-12 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px]" />
+    <div
+      className="flex flex-col items-center justify-center h-full gap-8 select-none rf-scan"
+      role="status"
+      aria-busy="true"
+      aria-label="Analyzing code"
+    >
+      <span className="sr-only">Analyzing code…</span>
+
+      {/* Dot Matrix Loader */}
+      <div className="flex flex-col items-center gap-5">
+        <div className="rf-dot-loader">
+          <span /><span /><span /><span /><span />
+        </div>
+        <span className="rf-micro-caps text-[var(--rf-mist)]/30 tracking-[0.2em]">
+          Analyzing
+        </span>
+      </div>
+
+      {/* Skeleton wireframe — matches final layout to prevent CLS */}
+      <div className="w-full max-w-sm space-y-4 px-2">
+        <div className="w-24 h-24 rounded-full border border-[var(--rf-border)] mx-auto opacity-20" />
+        <div className="h-3 bg-[var(--rf-forest)] rounded-full w-3/4 mx-auto opacity-30" />
+        <div className="h-3 bg-[var(--rf-forest)] rounded-full w-1/2 mx-auto opacity-20" />
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="h-10 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] opacity-20" />
+          <div className="h-10 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] opacity-20" />
         </div>
       </div>
     </div>
   );
 }
+
 
 /**
  * Results panel displaying the code analysis outcome.
@@ -144,7 +160,7 @@ export function Results({ result, loading, onReset }: ResultsProps) {
           transition={{ delay: 0.25 }}
           className="space-y-3 pt-2 will-change-[opacity]"
         >
-          <h3 className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/40 font-bold">Detected Issues</h3>
+          <h3 className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/40 font-semibold mb-3">Detected Issues</h3>
           {result.issues.map((issue, i) => (
             <IssueCard key={`${issue.severity}-${issue.title}-${i}`} issue={issue} index={i} />
           ))}

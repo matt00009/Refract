@@ -1,21 +1,49 @@
 /**
  * Empty state placeholder shown when no analysis result is available.
- * Implements a spinning terminal indicator matching the Stitch visual system.
+ * Uses the rf-micro-caps and animate-cursor-blink from the design system.
  */
 export function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center gap-4 py-12 select-none">
-      <div className="w-20 h-20 rounded-full border border-hairline bg-[var(--rf-surface)] flex items-center justify-center relative">
-        <span className="font-mono text-[var(--rf-volt)] font-bold text-2xl">&gt;_</span>
-        {/* Spinning highlight effect */}
-        <div className="absolute inset-0 rounded-full border-t border-[var(--rf-volt)] animate-spin opacity-50"></div>
+    <div className="flex flex-col items-center justify-center h-full text-center gap-5 py-12 select-none">
+
+      {/* Terminal prompt ring */}
+      <div className="relative w-20 h-20">
+        {/* Outer spinning arc */}
+        <div className="absolute inset-0 rounded-full border-t border-[var(--rf-volt)] animate-spin opacity-30" />
+        {/* Static ring */}
+        <div className="absolute inset-0 rounded-full border border-[var(--rf-border)] bg-[var(--rf-forest)] flex items-center justify-center">
+          <span className="font-mono text-[var(--rf-volt)] font-bold text-2xl leading-none">
+            &gt;<span className="animate-cursor-blink">_</span>
+          </span>
+        </div>
       </div>
-      <div>
-        <h3 className="text-sm font-medium text-[var(--rf-mist)]/60 mb-1">
-          Paste code <span className="hidden md:inline">on the left</span>
+
+      {/* Text */}
+      <div className="space-y-1.5">
+        <h3 className="text-sm font-medium text-[var(--rf-mist)]/60">
+          Paste code&nbsp;
+          <span className="hidden md:inline">on the left</span>
           <span className="inline md:hidden">above</span>
         </h3>
-        <p className="text-xs font-mono text-[var(--rf-border)]">Press Cmd/Ctrl+Enter to analyze</p>
+        <p className="rf-micro-caps text-[var(--rf-border)] tracking-[0.15em]">
+          Ctrl+Enter to analyze
+        </p>
+      </div>
+
+      {/* Shortcut hints */}
+      <div className="flex items-center gap-3 mt-1">
+        {[
+          { key: 'Ctrl+H', label: 'History' },
+          { key: 'Ctrl+,', label: 'Settings' },
+          { key: 'Ctrl+F', label: 'Focus' },
+        ].map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-1.5 opacity-40">
+            <kbd className="rf-micro-caps bg-[var(--rf-forest)] border border-[var(--rf-border)] px-1.5 py-0.5 rounded text-[9px]">
+              {key}
+            </kbd>
+            <span className="text-[9px] font-mono text-[var(--rf-mist)]/60">{label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

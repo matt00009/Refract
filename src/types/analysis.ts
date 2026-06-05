@@ -13,7 +13,10 @@ export interface Issue {
   title: string;
   description: string;
   line: number | null;
+  vulnerable_code: string | null;
   fix: string | null;
+  fix_code: string | null;
+  fix_explanation: string | null;
 }
 
 /** The result of an AI-powered code analysis. */

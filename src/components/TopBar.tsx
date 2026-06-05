@@ -78,7 +78,7 @@ export function TopBar({
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onShare}
-          className="w-8 h-8 rounded-full flex items-center justify-center border border-[var(--rf-border)] bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 hover:text-white transition-colors cursor-pointer"
+          className="rf-btn-ghost"
           title="Share report"
           aria-label="Share report"
         >
@@ -87,7 +87,7 @@ export function TopBar({
 
         <button
           onClick={onSettingsClick}
-          className="w-8 h-8 rounded-full flex items-center justify-center border border-[var(--rf-border)] bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 hover:text-white transition-colors cursor-pointer"
+          className="rf-btn-ghost"
           title="API Settings"
           aria-label="API Settings"
         >
@@ -96,9 +96,11 @@ export function TopBar({
 
         <button
           onClick={onHistoryClick}
-          className="w-8 h-8 rounded-full flex items-center justify-center border border-[var(--rf-border)] bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 hover:text-[var(--rf-sky)] transition-colors cursor-pointer"
+          className="rf-btn-ghost"
           title="History"
           aria-label="Open history"
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--rf-sky)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '')}
         >
           <History size={16} />
         </button>
@@ -107,7 +109,7 @@ export function TopBar({
           onClick={onAnalyze}
           disabled={isLoading}
           aria-label={isLoading ? 'Analyzing code' : 'Analyze code'}
-          className="flex items-center gap-2 px-4 py-1.5 bg-[var(--rf-volt)] text-[var(--rf-void)] text-sm font-bold rounded-[6px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="rf-btn-volt flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>{isLoading ? 'Analyzing' : 'Analyze Code'}</span>
           {isLoading ? (
@@ -120,3 +122,4 @@ export function TopBar({
     </div>
   );
 }
+

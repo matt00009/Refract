@@ -15,6 +15,8 @@ const LANGUAGES = CONST_LANGUAGES.map(l => ({
   value: l
 }));
 
+import { DetectionResult } from '../lib/detect';
+
 interface EditorProps {
   code: string;
   language: string;
@@ -23,6 +25,7 @@ interface EditorProps {
   onLanguageChange: (lang: string) => void;
   isFocusMode?: boolean;
   onFocusToggle?: () => void;
+  detection?: DetectionResult | null;
 }
 
 /**
@@ -36,7 +39,8 @@ export function Editor({
   onAnalyze,
   onLanguageChange,
   isFocusMode,
-  onFocusToggle
+  onFocusToggle,
+  detection
 }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -130,9 +134,9 @@ export function Editor({
     if (language === 'auto' || language === '') {
       setTimeout(() => {
         const fullCode = code + pasted;
-        const detected = detectLanguage(fullCode);
-        if (detected !== 'javascript') {
-          onLanguageChange(detected);
+        const detection = detectLanguage(fullCode);
+        if (detection.lang !== 'javascript') {
+          onLanguageChange(detection.lang);
         }
       }, 0);
     }
@@ -177,6 +181,35 @@ export function Editor({
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--rf-volt)]/10 text-[var(--rf-volt)] font-bold animate-pulse">
               FOCUS ACTIVE
             </span>
+          )}
+
+          {language === 'auto' && detection && detection.confidence > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--rf-forest)] border border-[var(--rf-border)] ml-2 group relative cursor-help">
+              <div 
+                className="h-1 w-1 rounded-full animate-ping" 
+                style={{ backgroundColor: detection.confidence > 0.7 ? 'var(--rf-volt)' : 'var(--rf-warn)' }}
+              />
+              <span className="text-[9px] font-mono text-[var(--rf-mist)] uppercase tracking-tighter">
+                {Math.round(detection.confidence * 100)}% Match
+              </span>
+              
+              {/* Tooltip Diagnostics */}
+              <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-md p-3 shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
+                <h4 className="text-[9px] font-bold text-[var(--rf-volt)] uppercase mb-2 border-b border-[var(--rf-border)] pb-1">Heuristic Diagnostics</h4>
+                <div className="space-y-1">
+                  {Object.entries(detection.scores)
+                    .filter(([, score]) => (score as number) > 0)
+                    .sort(([, a], [, b]) => (b as number) - (a as number))
+                    .slice(0, 5)
+                    .map(([lang, score]) => (
+                      <div key={lang} className="flex justify-between text-[9px] font-mono">
+                        <span className="text-[var(--rf-mist)] capitalize">{lang}</span>
+                        <span className="text-[var(--rf-border)]">+{score}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
