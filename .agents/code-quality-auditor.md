@@ -1,6 +1,5 @@
 ---
 name: code-quality-auditor
-type: self
 description: Code quality, consistency, and maintainability enforcer
 ---
 # Role: Code quality, consistency, and maintainability enforcer

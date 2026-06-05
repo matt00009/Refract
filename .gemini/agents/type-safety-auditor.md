@@ -1,6 +1,5 @@
 ---
 name: type-safety-auditor
-type: self
 description: TypeScript strictness & type coverage enforcer
 ---
 # Role: TypeScript strictness & type coverage enforcer

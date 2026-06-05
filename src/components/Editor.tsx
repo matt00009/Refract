@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Trash2, Check, Maximize2, Minimize2 } from 'lucide-react';
 import { highlightCodeToTokens } from '../lib/highlight';
-import { detectLanguage } from '../lib/detect';
 import { LANGUAGES as CONST_LANGUAGES } from '../lib/constants';
+import { DetectionResult, detectLanguage } from '../lib/detect';
 
 const LANGUAGES = CONST_LANGUAGES.map(l => ({
   label: l === 'auto'
@@ -14,8 +14,6 @@ const LANGUAGES = CONST_LANGUAGES.map(l => ({
         : l.charAt(0).toUpperCase() + l.slice(1),
   value: l
 }));
-
-import { DetectionResult } from '../lib/detect';
 
 interface EditorProps {
   code: string;

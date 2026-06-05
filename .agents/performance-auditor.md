@@ -1,6 +1,5 @@
 ---
 name: performance-auditor
-type: self
 description: Runtime performance & bundle size optimizer
 ---
 # Role: Runtime performance & bundle size optimizer

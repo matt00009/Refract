@@ -1,6 +1,5 @@
 ---
 name: error-fixer
-type: self
 description: Specialized agent for diagnosing and fixing build, runtime, and syntax errors.
 ---
 # Role: Error Diagnostician & Fixer

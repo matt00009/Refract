@@ -2,7 +2,11 @@ import type { AnalysisResult } from '../types/analysis';
 
 /**
  * Validates that a response object conforms to the AnalysisResult shape.
- * Throws if the response is malformed.
+ * Performs deep checks for score, summary, issues, and strengths.
+ *
+ * @param data - The raw data from the API response
+ * @returns The data cast to AnalysisResult if valid
+ * @throws Error if any required field is missing or malformed
  */
 function validateAnalysisResponse(data: unknown): AnalysisResult {
   if (typeof data !== 'object' || data === null) {

@@ -1,6 +1,5 @@
 ---
 name: security-auditor
-type: self
 description: Security & secrets scanner. Run on PRs and weekly.
 ---
 # Role: Security & secrets scanner

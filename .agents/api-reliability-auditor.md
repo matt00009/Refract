@@ -1,6 +1,5 @@
 ---
 name: api-reliability-auditor
-type: self
 description: Backend API robustness and provider integration tester
 ---
 # Role: Backend API robustness and provider integration tester

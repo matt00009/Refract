@@ -23,8 +23,8 @@ export const CODE_LANGUAGES = LANGUAGES.filter((l): l is Exclude<typeof l, 'auto
 /** Provider configuration entries with display metadata. */
 export const PROVIDERS: { value: Provider; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>>; model: string }[] = [
   { value: 'auto', label: 'Auto', icon: SparklesIcon, model: '' },
-  { value: 'anthropic', label: 'Claude', icon: AnthropicIcon, model: 'claude-sonnet-4-20250514' },
-  { value: 'gemini', label: 'Gemini', icon: GeminiIcon, model: 'gemini-2.5-pro' },
+  { value: 'anthropic', label: 'Claude', icon: AnthropicIcon, model: 'claude-3-5-sonnet-20240620' },
+  { value: 'gemini', label: 'Gemini', icon: GeminiIcon, model: 'gemini-1.5-pro' },
   { value: 'mistral', label: 'Mistral', icon: MistralIcon, model: 'codestral-latest' },
   { value: 'groq', label: 'Groq', icon: GroqIcon, model: 'llama-3.3-70b-versatile' },
   { value: 'deepseek', label: 'DeepSeek', icon: DeepSeekIcon, model: 'deepseek-chat' },

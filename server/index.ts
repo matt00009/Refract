@@ -15,25 +15,40 @@ app.use(helmet({
 }));
 
 app.use(express.json({ limit: '16kb' })); // Prevent large body attacks
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+app.use(cors({ 
+  origin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',') 
+    : ['http://localhost:5173', 'http://localhost:5174'] 
+}));
 
 // ── Prompt Injection Guard ──────────────────────────────────
 const INJECTION_PATTERNS = [
   /ignore\s+previous\s+instructions/i,
-  /system\s*prompt/i,
   /<\|im_start\|>/i,
   /<\|im_end\|>/i,
   /\[INST\]/i,
   /<<SYS>>/i,
-  /you\s+are\s+now/i,
   /forget\s+(all|everything|previous)/i,
 ];
 
+/**
+ * Scans a code string for common prompt injection patterns used to hijack LLM behavior.
+ * Checks against the INJECTION_PATTERNS regex list.
+ *
+ * @param code - The code or text to analyze
+ * @returns true if an injection pattern is detected
+ */
 function detectPromptInjection(code: string): boolean {
   return INJECTION_PATTERNS.some((p) => p.test(code));
 }
 
-/** Strip null bytes and dangerous control characters from user input */
+/** 
+ * Strip null bytes and dangerous control characters from user input to prevent attacks.
+ * Preserves standard whitespace like tabs and newlines.
+ * 
+ * @param str - The raw user input string
+ * @returns The sanitized string
+ */
 /* eslint-disable no-control-regex */
 function sanitizeInput(str: string): string {
   return str
@@ -52,6 +67,14 @@ const KEY_PATTERNS: Record<string, RegExp> = {
   gemini:    /^AI[za-zA-Z0-9_-]{30,}/,
 };
 
+/** 
+ * Validates that an API key matches the expected format for its provider.
+ * Performs a lightweight regex-based sanity check before making external calls.
+ * 
+ * @param provider - The provider identifier (e.g., 'anthropic')
+ * @param key - The API key to validate
+ * @returns true if the key format is valid or unknown
+ */
 function isValidKeyFormat(provider: string, key: string): boolean {
   const pattern = KEY_PATTERNS[provider];
   if (!pattern) return true; // Unknown provider — allow and let the API decide
@@ -63,6 +86,13 @@ const rateLimiter = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 10;
 
+/**
+ * Enforces a sliding window rate limit based on the requester's IP.
+ * Defaults to 10 requests per minute.
+ * 
+ * @param ip - The client's IP address
+ * @returns true if the request is allowed, false if limited
+ */
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const timestamps = rateLimiter.get(ip) || [];
@@ -156,7 +186,7 @@ interface GeminiResponse {
 type ProviderConfig = {
   url: string;
   headers: (key: string) => Record<string, string>;
-  getBody: (code: string, lang: string, model: string) => unknown;
+  getBody: (code: string, lang: string, model: string, temperature?: number, max_tokens?: number) => unknown;
   parse: (res: unknown) => string;
 };
 
@@ -210,7 +240,7 @@ const API_MAP: Record<string, ProviderConfig> = {
     url: 'https://api.anthropic.com/v1/messages',
     headers: (key) => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }),
     getBody: (code, lang, model, temperature, max_tokens) => ({
-      model: model || 'claude-sonnet-4-20250514',
+      model: model || 'claude-3-5-sonnet-20240620',
       max_tokens: max_tokens ?? 2000,
       temperature: temperature ?? 0,
       system: systemPrompt,
@@ -219,7 +249,7 @@ const API_MAP: Record<string, ProviderConfig> = {
     parse: (res: unknown) => (res as AnthropicResponse).content[0].text,
   },
   gemini: {
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
     headers: (key) => ({ 'Content-Type': 'application/json', 'x-goog-api-key': key }),
     getBody: (code, lang, model, temperature, max_tokens) => ({
       contents: [{ parts: [{ text: `${systemPrompt}\n\nAnalyze this ${lang} code:\n\n${code}` }] }],
@@ -315,6 +345,19 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
       max_tokens?: number;
     };
 
+    // ── Input Validation ──────────────────────────────────────
+    if (model !== undefined && (typeof model !== 'string' || model.length > 100)) {
+      return res.status(400).json({ error: 'Invalid model name' });
+    }
+
+    if (temperature !== undefined && (typeof temperature !== 'number' || temperature < 0 || temperature > 2)) {
+      return res.status(400).json({ error: 'Temperature must be between 0 and 2' });
+    }
+
+    if (max_tokens !== undefined && (typeof max_tokens !== 'number' || max_tokens < 1 || max_tokens > 8000)) {
+      return res.status(400).json({ error: 'max_tokens must be between 1 and 8000' });
+    }
+
     const rawCode = typeof code === 'string' ? sanitizeInput(code) : '';
 
     if (!rawCode) {
@@ -350,7 +393,7 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
         model = model || 'llama-3.3-70b-versatile';
       } else {
         provider = 'anthropic';
-        model = model || 'claude-sonnet-4-20250514';
+        model = model || 'claude-3-5-sonnet-20240620';
       }
     }
 
@@ -404,8 +447,8 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     return res.json({ ...validatedAnalysis, latency });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Proxy routing failure:', msg);
-    return res.status(500).json({ error: 'Failed to process AI payload' });
+    console.error('Proxy routing failure:', error);
+    return res.status(500).json({ error: `Analysis failed: ${msg}` });
   }
 });
 

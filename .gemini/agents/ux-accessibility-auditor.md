@@ -1,6 +1,5 @@
 ---
 name: ux-accessibility-auditor
-type: self
 description: UX quality, accessibility, and responsive design validator
 ---
 # Role: UX quality, accessibility, and responsive design validator

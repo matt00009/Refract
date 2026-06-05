@@ -45,10 +45,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
     // Load advanced settings
     const savedTemp = localStorage.getItem('rf_temperature');
-    if (savedTemp) setTemperature(parseFloat(savedTemp));
+    if (savedTemp) {
+      const val = parseFloat(savedTemp);
+      if (!isNaN(val) && val >= 0 && val <= 1) setTemperature(val);
+    }
 
     const savedTokens = localStorage.getItem('rf_max_tokens');
-    if (savedTokens) setMaxTokens(parseInt(savedTokens, 10));
+    if (savedTokens) {
+      const val = parseInt(savedTokens, 10);
+      if (!isNaN(val) && val >= 256 && val <= 4096) setMaxTokens(val);
+    }
   }, [open]);
 
   const handleKeyChange = (provider: string, value: string) => {
@@ -61,9 +67,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Final boundary check before save
+    const finalTemp = Math.min(Math.max(temperature, 0), 1);
+    const finalTokens = Math.min(Math.max(maxTokens, 256), 4096);
+
     localStorage.setItem('rf_api_keys', JSON.stringify(keys));
-    localStorage.setItem('rf_temperature', temperature.toString());
-    localStorage.setItem('rf_max_tokens', maxTokens.toString());
+    localStorage.setItem('rf_temperature', finalTemp.toString());
+    localStorage.setItem('rf_max_tokens', finalTokens.toString());
     onClose();
 
     // Notify components that settings were updated
