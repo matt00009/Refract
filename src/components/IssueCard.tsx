@@ -67,7 +67,7 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const config = SEVERITY_CONFIG[issue.severity];
+  const config = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.suggestion;
   const Icon = config.icon;
   const contentId = `issue-content-${index}`;
 

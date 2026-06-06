@@ -1,29 +1,5 @@
 import type { AnalysisResult } from '../types/analysis';
-
-/**
- * Validates that a response object conforms to the AnalysisResult shape.
- * Performs deep checks for score, summary, issues, and strengths.
- *
- * @param data - The raw data from the API response
- * @returns The data cast to AnalysisResult if valid
- * @throws Error if any required field is missing or malformed
- */
-function validateAnalysisResponse(data: unknown): AnalysisResult {
-  if (typeof data !== 'object' || data === null) {
-    throw new Error('Invalid response: not an object');
-  }
-
-  const obj = data as Record<string, unknown>;
-  if (typeof obj.score !== 'number' || typeof obj.summary !== 'string') {
-    throw new Error('Invalid response: missing score or summary');
-  }
-
-  if (!Array.isArray(obj.issues) || !Array.isArray(obj.strengths)) {
-    throw new Error('Invalid response: missing issues or strengths');
-  }
-
-  return data as AnalysisResult;
-}
+import { analysisResultSchema } from './schemas';
 
 /**
  * Sends code to the backend proxy for AI-powered analysis.
@@ -45,12 +21,14 @@ export async function analyzeCode(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
   // Read locally stored API keys (stored in localStorage for BYOK support).
-  // Note: localStorage is accessible via XSS — this is an accepted trade-off for BYOK.
   const savedKeys = localStorage.getItem('rf_api_keys');
   if (savedKeys) {
     try {
       const keys = JSON.parse(savedKeys) as Record<string, string>;
-      if (keys[provider]) {
+      if (provider === 'auto') {
+        // In auto mode, send the entire keys object so the server can route intelligently
+        headers['X-Provider-Keys'] = savedKeys;
+      } else if (keys[provider]) {
         headers['X-Provider-Key'] = keys[provider];
       }
     } catch {
@@ -73,10 +51,19 @@ export async function analyzeCode(
     throw new Error((err as { error?: string }).error || `HTTP ${response.status}`);
   }
 
-  const data: unknown = await response.json();
-  if (typeof data === 'object' && data !== null && 'error' in data) {
-    throw new Error((data as { error: string }).error);
-  }
+  const data = await response.json();
 
-  return validateAnalysisResponse(data);
+  // Validate the response using Zod schema to guarantee type safety
+  try {
+    const parsedData = analysisResultSchema.parse(data);
+    // Add latency and routed info which the server attaches outside the LLM payload
+    return { 
+      ...parsedData, 
+      latency: data.latency,
+      routed: data.routed 
+    } as AnalysisResult;
+  } catch (error) {
+    console.error('Client-side validation failed:', error);
+    throw new Error('Received malformed data from the server.');
+  }
 }

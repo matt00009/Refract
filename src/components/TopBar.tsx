@@ -50,7 +50,7 @@ export function TopBar({
                 }`}
                 aria-label={`Select AI Provider: ${p.label}`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                {Icon && <Icon className="w-3.5 h-3.5" />}
                 <span>{p.label}</span>
               </button>
             );

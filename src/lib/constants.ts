@@ -20,14 +20,17 @@ export const LANGUAGES = [
 /** Supported languages excluding 'auto' — for syntax highlighting and detection. */
 export const CODE_LANGUAGES = LANGUAGES.filter((l): l is Exclude<typeof l, 'auto'> => l !== 'auto');
 
-/** Provider configuration entries with display metadata. */
+/** 
+ * Provider configuration entries with display metadata.
+ * Models are 'SOTA-first' (targeting latest 2025/2026 frontier models).
+ */
 export const PROVIDERS: { value: Provider; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>>; model: string }[] = [
-  { value: 'auto', label: 'Auto', icon: SparklesIcon, model: '' },
-  { value: 'anthropic', label: 'Claude', icon: AnthropicIcon, model: 'claude-3-5-sonnet-20240620' },
-  { value: 'gemini', label: 'Gemini', icon: GeminiIcon, model: 'gemini-1.5-pro' },
-  { value: 'mistral', label: 'Mistral', icon: MistralIcon, model: 'codestral-latest' },
-  { value: 'groq', label: 'Groq', icon: GroqIcon, model: 'llama-3.3-70b-versatile' },
-  { value: 'deepseek', label: 'DeepSeek', icon: DeepSeekIcon, model: 'deepseek-chat' },
+  { value: 'auto', label: 'Intelligent', icon: SparklesIcon, model: '' },
+  { value: 'anthropic', label: 'Claude 3.7', icon: AnthropicIcon, model: 'claude-3-7-sonnet-latest' },
+  { value: 'gemini', label: 'Gemini 2.5', icon: GeminiIcon, model: 'gemini-2.5-pro-latest' },
+  { value: 'mistral', label: 'Mistral L3', icon: MistralIcon, model: 'mistral-large-latest' },
+  { value: 'groq', label: 'Groq Llama 3.3', icon: GroqIcon, model: 'llama-3.3-70b-versatile' },
+  { value: 'deepseek', label: 'DeepSeek V4', icon: DeepSeekIcon, model: 'deepseek-v4-pro' },
 ];
 
 /** Lookup map from provider value to display label. */
@@ -41,4 +44,3 @@ export const PROVIDER_ICONS: Record<string, React.FC<React.SVGProps<SVGSVGElemen
   (acc, p) => ({ ...acc, [p.value]: p.icon }),
   {} as Record<string, React.FC<React.SVGProps<SVGSVGElement>>>
 );
-

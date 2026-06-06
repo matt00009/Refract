@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Share2, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ScoreRing } from './ScoreRing';
 import { IssueCard } from './IssueCard';
 import { EmptyState } from './EmptyState';
@@ -24,6 +24,24 @@ function getComplexityColor(complexity: Complexity): string {
 }
 
 function LoadingSkeleton() {
+  const [loadingText, setLoadingText] = useState('Analyzing code');
+
+  useEffect(() => {
+    const texts = [
+      'Scanning syntax...',
+      'Building AST...',
+      'Applying heuristics...',
+      'Evaluating security...',
+      'Generating report...'
+    ];
+    let i = 0;
+    const interval = setInterval(() => {
+      i = (i + 1) % texts.length;
+      setLoadingText(texts[i]);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div
       className="flex flex-col items-center justify-center h-full gap-8 select-none rf-scan"
@@ -38,8 +56,8 @@ function LoadingSkeleton() {
         <div className="rf-dot-loader">
           <span /><span /><span /><span /><span />
         </div>
-        <span className="rf-micro-caps text-[var(--rf-mist)]/30 tracking-[0.2em]">
-          Analyzing
+        <span className="rf-micro-caps text-[var(--rf-mist)]/30 tracking-[0.2em] transition-all duration-300">
+          {loadingText}
         </span>
       </div>
 

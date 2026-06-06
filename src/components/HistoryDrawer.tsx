@@ -156,7 +156,11 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                         </span>
                         <span className="text-[10px] uppercase tracking-wider text-[var(--rf-mist)]/50">{entry.lang}</span>
                         <span className="ml-auto flex items-center justify-center text-[var(--rf-mist)]">
-                          {IconComponent ? <IconComponent className="w-3 h-3" /> : '•'}
+                          {IconComponent ? (
+                            <IconComponent className="w-3 h-3" />
+                          ) : (
+                            <span className="text-[9px] font-mono opacity-40">{entry.provider}</span>
+                          )}
                         </span>
                         <span className="text-[10px] text-[var(--rf-mist)]/50">{timeAgo(entry.ts)}</span>
                       </div>

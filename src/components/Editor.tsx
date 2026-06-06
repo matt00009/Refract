@@ -26,6 +26,11 @@ interface EditorProps {
   detection?: DetectionResult | null;
 }
 
+interface ShikiToken {
+  content: string;
+  color?: string;
+}
+
 /**
  * Text editor component with line numbers, code highlighting, language auto-detection,
  * and integrated language selector.
@@ -59,7 +64,7 @@ export function Editor({
             const tokens = await highlightCodeToTokens(code, language);
             let html = '';
 
-            const tokenLines = Array.isArray(tokens) ? tokens : tokens.tokens || [];
+            const tokenLines = (Array.isArray(tokens) ? tokens : (tokens as { tokens: ShikiToken[][] }).tokens || []) as ShikiToken[][];
             for (const line of tokenLines) {
               for (const token of line) {
                 const color = token.color || '#E8F0E0';
@@ -132,9 +137,9 @@ export function Editor({
     if (language === 'auto' || language === '') {
       setTimeout(() => {
         const fullCode = code + pasted;
-        const detection = detectLanguage(fullCode);
-        if (detection.lang !== 'javascript') {
-          onLanguageChange(detection.lang);
+        const detectionResult = detectLanguage(fullCode);
+        if (detectionResult.lang !== 'javascript') {
+          onLanguageChange(detectionResult.lang);
         }
       }, 0);
     }
@@ -247,7 +252,7 @@ export function Editor({
         {/* Line numbers */}
         <div className="w-12 border-r border-[var(--rf-border)] flex flex-col overflow-hidden select-none bg-[var(--rf-void)] shrink-0">
           <div ref={lineNumRef} className="flex-1 overflow-hidden pt-4 pr-3">
-            {lines.map((_, i) => (
+            {lines.map((_line: string, i: number) => (
               <div
                 key={i}
                 className="h-[26px] text-right text-[11px] font-mono text-[var(--rf-border)] leading-[1.65]"
