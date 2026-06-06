@@ -125,19 +125,20 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-lg overflow-hidden group"
+      className="bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-lg overflow-hidden group focus-within:ring-1 focus-within:ring-[var(--rf-volt)]/30"
     >
       {/* Header — always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-controls={contentId}
-        className="w-full flex items-center justify-between p-4 text-left cursor-pointer hover:bg-[#1A2621] transition-colors"
+        className="w-full flex items-center justify-between p-4 text-left cursor-pointer hover:bg-[#1A2621] transition-colors focus:outline-none"
       >
-        <div className="flex items-center gap-3">
+        <motion.div layout="position" className="flex items-center gap-3">
           <Icon size={18} style={{ color: config.color, flexShrink: 0 }} />
           <div>
             <div className="font-bold text-sm text-[var(--rf-mist)]">{issue.title}</div>
@@ -145,13 +146,15 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
               {config.label}{issue.line ? ` · Line ${issue.line}` : ''}
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <ChevronDown
-          size={16}
-          className="flex-shrink-0 text-[var(--rf-mist)]/40 transition-transform duration-200"
-          style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        />
+        <motion.div layout>
+          <ChevronDown
+            size={16}
+            className="flex-shrink-0 text-[var(--rf-mist)]/40 transition-transform duration-200"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </motion.div>
       </button>
 
       {/* Expanded content */}
@@ -159,21 +162,30 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
         {expanded && (
           <motion.div
             id={contentId}
+            layout
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-4 border-t border-[var(--rf-border)]">
               {/* Description */}
-              <p className="text-sm text-[var(--rf-mist)] leading-relaxed pt-3">{issue.description}</p>
+              <motion.p 
+                layout="position"
+                className="text-sm text-[var(--rf-mist)] leading-relaxed pt-3"
+              >
+                {issue.description}
+              </motion.p>
 
               {/* Dual-panel: Vulnerable Code / Secure Fix */}
               {hasDualPanel && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <motion.div 
+                  layout
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                >
                   {/* Vulnerable Code panel */}
-                  <div className="rounded-[6px] bg-[rgba(255,144,112,0.02)] border border-[rgba(255,144,112,0.15)] overflow-hidden">
+                  <motion.div layout className="rounded-[6px] bg-[rgba(255,144,112,0.02)] border border-[rgba(255,144,112,0.15)] overflow-hidden">
                     <div className="px-3 py-1.5 border-b border-[rgba(255,144,112,0.15)] flex items-center gap-2">
                       <XCircle size={12} className="text-[var(--rf-ember)] shrink-0" />
                       <span className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-ember)] font-semibold">
@@ -185,10 +197,10 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
                         <code dangerouslySetInnerHTML={{ __html: displayVulnerable ?? '// N/A' }} />
                       </pre>
                     </div>
-                  </div>
+                  </motion.div>
 
                   {/* Secure Fix panel */}
-                  <div className="rounded-[6px] bg-[rgba(168,255,62,0.01)] border border-[rgba(168,255,62,0.20)] overflow-hidden group/fix relative">
+                  <motion.div layout className="rounded-[6px] bg-[rgba(168,255,62,0.01)] border border-[rgba(168,255,62,0.20)] overflow-hidden group/fix relative">
                     <div className="px-3 py-1.5 border-b border-[rgba(168,255,62,0.20)] flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <ShieldCheck size={12} className="text-[var(--rf-volt)] shrink-0" />
@@ -200,7 +212,7 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
                         <button
                           onClick={handleCopyFix}
                           aria-label="Copy fix to clipboard"
-                          className="flex items-center gap-1.5 text-[9px] font-mono tracking-wider uppercase bg-[rgba(168,255,62,0.1)] text-[var(--rf-volt)] hover:bg-[var(--rf-volt)] hover:text-[var(--rf-void)] px-2.5 py-1 rounded-full border border-[rgba(168,255,62,0.3)] transition-all cursor-pointer shadow-sm hover:scale-105 opacity-100 sm:opacity-0 group-hover/fix:opacity-100"
+                          className="flex items-center gap-1.5 text-[9px] font-mono tracking-wider uppercase bg-[rgba(168,255,62,0.1)] text-[var(--rf-volt)] hover:bg-[var(--rf-volt)] hover:text-[var(--rf-void)] px-2.5 py-1 rounded-full border border-[rgba(168,255,62,0.3)] transition-all cursor-pointer shadow-sm hover:scale-105 opacity-100 sm:opacity-0 group-hover/fix:opacity-100 focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]"
                         >
                           {copied ? <Check size={10} className="stroke-[3]" /> : <Copy size={10} />}
                           <span>{copied ? 'Copié' : 'Copier'}</span>
@@ -212,13 +224,16 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
                         <code dangerouslySetInnerHTML={{ __html: displayFix ?? '// Aucun correctif disponible' }} />
                       </pre>
                     </div>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
               )}
 
               {/* Resolution methodology */}
               {displayBullets.length > 0 && (
-                <div className="mt-4 p-4 rounded-[6px] border border-[var(--rf-border)] bg-[rgba(8,11,15,0.3)] font-mono text-[11px] leading-relaxed">
+                <motion.div 
+                  layout
+                  className="mt-4 p-4 rounded-[6px] border border-[var(--rf-border)] bg-[rgba(8,11,15,0.3)] font-mono text-[11px] leading-relaxed"
+                >
                   <div className="text-[10px] tracking-widest uppercase text-[var(--rf-volt)] mb-3 font-semibold rf-micro-caps">
                     MÉTHODOLOGIE DE RÉSOLUTION :
                   </div>
@@ -230,7 +245,7 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
                       </li>
                     ))}
                   </ul>
-                </div>
+                </motion.div>
               )}
             </div>
           </motion.div>

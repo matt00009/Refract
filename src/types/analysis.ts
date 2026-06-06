@@ -17,6 +17,7 @@ export interface Issue {
   fix: string | null;
   fix_code: string | null;
   fix_explanation: string | null;
+  [key: string]: unknown; // Allow for unmapped creative fields from the AI (Zod passthrough)
 }
 
 /** The result of an AI-powered code analysis. */
@@ -26,7 +27,13 @@ export interface AnalysisResult {
   summary: string;
   issues: Issue[];
   strengths: string[];
+  insights?: string[]; // Optional lateral insights or architectural advice
   latency?: number;
+  routed?: {
+    provider: string;
+    model: string;
+  };
+  [key: string]: unknown; // Allow for unmapped creative fields from the AI (Zod passthrough)
 }
 
 /** A saved history entry for a past code analysis. */

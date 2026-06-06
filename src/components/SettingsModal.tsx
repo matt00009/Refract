@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Key, Sliders, Keyboard, CheckCircle, AlertTriangle } from 'lucide-react';
+import { X, Save, Key, Sliders, Lock, Unlock, User, LogOut, Cloud } from 'lucide-react';
 import { PROVIDERS } from '../lib/constants';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { encryptVault, decryptVault } from '../lib/crypto';
+import { pb, isAuthenticated } from '../lib/db';
 
 interface SettingsModalProps {
   open: boolean;
@@ -14,48 +16,110 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const [serverConfig, setServerConfig] = useState<Record<string, boolean>>({});
   const [keys, setKeys] = useState<Record<string, string>>({});
+  const [vaultPassword, setVaultPassword] = useState<string>('');
+  const [isVaultLocked, setIsVaultLocked] = useState<boolean>(true);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<number>(0.1);
   const [maxTokens, setMaxTokens] = useState<number>(2000);
-  const [loading, setLoading] = useState<boolean>(true);
 
-  // Load configuration and server config on open
-  useEffect(() => {
-    if (!open) return;
+  // Auth State
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-    setLoading(true);
+  const refreshData = useCallback(() => {
     fetch('/api/config')
       .then((res) => res.json())
       .then((data) => {
         setServerConfig(data);
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {});
 
-    // Load locally saved keys
-    const savedKeys = localStorage.getItem('rf_api_keys');
-    if (savedKeys) {
-      try {
-        setKeys(JSON.parse(savedKeys));
-      } catch (e) {
-        console.error('Failed to parse rf_api_keys:', e);
-      }
+    const sessionPass = sessionStorage.getItem('rf_vault_session_key');
+    if (sessionPass) {
+      setVaultPassword(sessionPass);
+      loadAndDecryptKeys(sessionPass, true);
     } else {
-      setKeys({});
+      if (!localStorage.getItem('rf_vault_integrity')) setIsVaultLocked(false);
     }
 
-    // Load advanced settings
     const savedTemp = localStorage.getItem('rf_temperature');
-    if (savedTemp) {
-      const val = parseFloat(savedTemp);
-      if (!isNaN(val) && val >= 0 && val <= 1) setTemperature(val);
-    }
+    if (savedTemp) setTemperature(parseFloat(savedTemp));
 
     const savedTokens = localStorage.getItem('rf_max_tokens');
-    if (savedTokens) {
-      const val = parseInt(savedTokens, 10);
-      if (!isNaN(val) && val >= 256 && val <= 4096) setMaxTokens(val);
+    if (savedTokens) setMaxTokens(parseInt(savedTokens, 10));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    refreshData();
+  }, [open, refreshData]);
+
+  const loadAndDecryptKeys = async (password: string, quiet = false) => {
+    const integrityEncrypted = localStorage.getItem('rf_vault_integrity');
+    const keysEncrypted = localStorage.getItem('rf_api_keys_encrypted');
+    
+    if (!integrityEncrypted) {
+      setIsVaultLocked(false);
+      return;
     }
-  }, [open]);
+
+    try {
+      await decryptVault(integrityEncrypted, password);
+      if (keysEncrypted) {
+        const decrypted = await decryptVault(keysEncrypted, password);
+        setKeys(JSON.parse(decrypted));
+      }
+      setIsVaultLocked(false);
+      setUnlockError(null);
+      sessionStorage.setItem('rf_vault_session_key', password);
+    } catch {
+      if (!quiet) setUnlockError('Incorrect Vault Password.');
+      setIsVaultLocked(true);
+    }
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (authMode === 'register') {
+        await pb.collection('users').create({ email, password, passwordConfirm: password });
+      }
+      await pb.collection('users').authWithPassword(email, password);
+      setAuthError(null);
+      await syncVaultFromCloud();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      setAuthError(msg);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const syncVaultFromCloud = async () => {
+    if (!isAuthenticated()) return;
+    try {
+      const records = await pb.collection('settings').getList(1, 1);
+      if (records.items.length > 0) {
+        const cloudVault = records.items[0];
+        localStorage.setItem('rf_vault_integrity', cloudVault.integrity);
+        localStorage.setItem('rf_api_keys_encrypted', cloudVault.keys);
+        const pass = sessionStorage.getItem('rf_vault_session_key');
+        if (pass) loadAndDecryptKeys(pass, true);
+      }
+    } catch (e) { console.error('Cloud vault sync failed:', e); }
+  };
+
+  const handleLogout = () => {
+    pb.authStore.clear();
+    setEmail('');
+    setPassword('');
+    refreshData();
+  };
 
   const handleKeyChange = (provider: string, value: string) => {
     setKeys((prev) => {
@@ -65,205 +129,133 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Final boundary check before save
-    const finalTemp = Math.min(Math.max(temperature, 0), 1);
-    const finalTokens = Math.min(Math.max(maxTokens, 256), 4096);
+    if (!vaultPassword) return;
 
-    localStorage.setItem('rf_api_keys', JSON.stringify(keys));
-    localStorage.setItem('rf_temperature', finalTemp.toString());
-    localStorage.setItem('rf_max_tokens', finalTokens.toString());
-    onClose();
+    try {
+      const integrityPayload = JSON.stringify({ version: "1.0", updated: Date.now() });
+      const integrityEnc = await encryptVault(integrityPayload, vaultPassword);
+      const keysEnc = await encryptVault(JSON.stringify(keys), vaultPassword);
 
-    // Notify components that settings were updated
-    window.dispatchEvent(new Event('rf_settings_updated'));
+      localStorage.setItem('rf_vault_integrity', integrityEnc);
+      localStorage.setItem('rf_api_keys_encrypted', keysEnc);
+      sessionStorage.setItem('rf_vault_session_key', vaultPassword);
+      
+      if (isAuthenticated()) {
+        const existing = await pb.collection('settings').getList(1, 1).catch(() => ({ items: [] }));
+        const data = { user: pb.authStore.model?.id, integrity: integrityEnc, keys: keysEnc };
+        if (existing.items.length > 0) {
+          await pb.collection('settings').update(existing.items[0].id, data);
+        } else {
+          await pb.collection('settings').create(data);
+        }
+      }
+
+      localStorage.setItem('rf_temperature', temperature.toString());
+      localStorage.setItem('rf_max_tokens', maxTokens.toString());
+      onClose();
+      window.dispatchEvent(new Event('rf_settings_updated'));
+    } catch (err) { console.error('Save failed:', err); }
   };
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop Fade */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[80]"
-          />
-
-          {/* Modal Container */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[80]" />
           <div className="fixed inset-0 flex items-center justify-center p-4 z-[90] pointer-events-none">
-            <motion.div
-              ref={focusTrapRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Application Settings"
-              initial={{ opacity: 0, y: 15, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="pointer-events-auto w-full max-w-[500px] max-h-[85vh] bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-lg flex flex-col overflow-hidden shadow-2xl"
-            >
-              {/* FIXED HEADER */}
-              <div className="h-12 px-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-between shrink-0 select-none">
+            <motion.div ref={focusTrapRef} role="dialog" aria-modal="true" aria-label="Application Settings" initial={{ opacity: 0, y: 15, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} className="pointer-events-auto w-full max-w-[500px] max-h-[90vh] bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-lg flex flex-col overflow-hidden shadow-2xl">
+              <div className="h-12 px-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2 text-[var(--rf-volt)]">
                   <Sliders size={14} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
-                    TERMINAL // CONFIGURATION
-                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest font-mono">TERMINAL // CONFIGURATION</span>
                 </div>
-                <button
-                  onClick={onClose}
-                  aria-label="Close settings"
-                  className="p-1.5 hover:bg-[var(--rf-forest)] rounded transition-colors text-[var(--rf-mist)]/50 hover:text-white cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={onClose} aria-label="Close settings" className="p-1.5 hover:bg-[var(--rf-forest)] rounded text-[var(--rf-mist)]/50 cursor-pointer focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none"><X size={16} /></button>
               </div>
 
-              {/* SCROLLABLE CONTENT BODY */}
-              <form onSubmit={handleSave} className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-5 space-y-6 diff-scrollbar bg-[var(--rf-depth)]">
-                  
-                  {/* Banner Info */}
-                  <div className="bg-[var(--rf-forest)] p-3 rounded-lg flex gap-3 text-xs text-[var(--rf-mist)] border border-[var(--rf-border)] select-none">
-                    <AlertTriangle className="text-[var(--rf-warn)] shrink-0 animate-pulse" size={16} />
-                    <p className="leading-relaxed">
-                      Provide your own API keys below. They are saved securely in your browser's local storage and sent only to the Refract proxy.
-                    </p>
+              {isVaultLocked && localStorage.getItem('rf_vault_integrity') ? (
+                <div className="p-8 flex flex-col items-center justify-center space-y-6 text-center">
+                  <div className="w-16 h-16 rounded-full bg-[var(--rf-forest)] border border-[var(--rf-border)] flex items-center justify-center text-[var(--rf-volt)]"><Lock size={32} /></div>
+                  <div>
+                    <h2 className="rf-micro-caps text-lg tracking-wider">Vault Locked</h2>
+                    <p className="text-xs text-[var(--rf-mist)]/60">Enter password to unlock your keys.</p>
                   </div>
-
-                  {/* Section: API Keys */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5 select-none">
-                      <Key size={12} />
-                      <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">API Credentials (BYOK)</h3>
-                    </div>
+                  <form onSubmit={(e) => { e.preventDefault(); if (vaultPassword) loadAndDecryptKeys(vaultPassword); }} className="w-full max-w-[300px] space-y-4">
+                    <input type="password" placeholder="Vault Password" value={vaultPassword} onChange={(e) => setVaultPassword(e.target.value)} autoFocus className={`w-full bg-[var(--rf-void)] border ${unlockError ? 'border-[var(--rf-ember)]' : 'border-[var(--rf-border)]'} rounded-[6px] px-4 py-2 text-sm font-mono text-white outline-none focus:border-[var(--rf-volt)]/50`}/>
+                    {unlockError && <div className="text-[10px] text-[var(--rf-ember)] font-mono">{unlockError}</div>}
+                    <button type="submit" className="w-full py-2 rounded-[6px] bg-[var(--rf-volt)] text-[var(--rf-void)] text-xs font-mono font-bold hover:opacity-90 transition-all"><Unlock size={14} className="inline mr-2"/> UNLOCK</button>
+                  </form>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-5 space-y-8 diff-scrollbar">
                     
-                    {loading ? (
-                      <div className="animate-pulse flex items-center justify-center h-20 text-[var(--rf-mist)]/40 text-xs font-mono">
-                        Configuring server parameters...
-                      </div>
-                    ) : (
-                      PROVIDERS.filter((p) => p.value !== 'auto').map((p) => {
-                        const Icon = p.icon;
-                        const isServerConfigured = serverConfig[p.value];
-                        
-                        return (
-                          <div key={p.value} className="flex flex-col gap-1.5">
-                            <label htmlFor={`key-${p.value}`} className="flex items-center justify-between text-[10px] font-mono text-[var(--rf-mist)]/60 capitalize">
-                              <span className="flex items-center gap-1.5">
-                                <Icon className="w-3.5 h-3.5 text-[var(--rf-sky)]" />
-                                {p.label} API Key
-                              </span>
-                              {isServerConfigured && (
-                                <span className="flex items-center gap-1 text-[var(--rf-volt)] text-[9px] uppercase tracking-wider font-semibold">
-                                  <CheckCircle size={10} /> Active on server
-                                </span>
-                              )}
-                            </label>
-                            <input
-                              id={`key-${p.value}`}
-                              type="password"
-                              autoComplete="off"
-                              placeholder={isServerConfigured ? 'Using server config (Override optional)' : `Enter ${p.label} API Key`}
-                              value={keys[p.value] || ''}
-                              onChange={(e) => handleKeyChange(p.value, e.target.value)}
-                              className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] px-3 py-1.5 text-xs font-mono text-white placeholder-[var(--rf-mist)]/20 focus:outline-none focus:border-[var(--rf-volt)]/50 focus:ring-1 focus:ring-[var(--rf-volt)]/50 transition-colors"
-                            />
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* Section: Model Parameters */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5 select-none">
-                      <Sliders size={12} />
-                      <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">Hyperparameters</h3>
-                    </div>
-
-                    {/* Temperature Slider */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between font-mono text-[10px] select-none">
-                        <span className="text-[var(--rf-mist)]/60">Temperature: <strong className="text-[var(--rf-volt)]">{temperature.toFixed(1)}</strong></span>
-                        <span className="text-[var(--rf-border)]">Precise ↔ Creative</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.0"
-                        max="1.0"
-                        step="0.1"
-                        value={temperature}
-                        onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                        className="w-full h-1 bg-[var(--rf-forest)] rounded-lg appearance-none cursor-pointer accent-[var(--rf-volt)] border border-[var(--rf-border)]"
-                      />
-                    </div>
-
-                    {/* Max Tokens Slider */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between font-mono text-[10px] select-none">
-                        <span className="text-[var(--rf-mist)]/60">Max Response Tokens: <strong className="text-[var(--rf-sky)]">{maxTokens}</strong></span>
-                      </div>
-                      <input
-                        type="range"
-                        min="256"
-                        max="4096"
-                        step="128"
-                        value={maxTokens}
-                        onChange={(e) => setMaxTokens(parseInt(e.target.value, 10))}
-                        className="w-full h-1 bg-[var(--rf-forest)] rounded-lg appearance-none cursor-pointer accent-[var(--rf-sky)] border border-[var(--rf-border)]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Section: Keyboard Shortcuts */}
-                  <div className="space-y-2 select-none">
-                    <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5">
-                      <Keyboard size={12} />
-                      <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">System Bindings</h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {[
-                        { key: 'Ctrl + Enter', desc: 'Execute Analysis' },
-                        { key: 'Ctrl + H', desc: 'Toggle History' },
-                        { key: 'Ctrl + F', desc: 'Toggle Focus Mode' },
-                        { key: 'Ctrl + ,', desc: 'System Configuration' },
-                      ].map((shortcut, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-[6px] border border-[var(--rf-border)] bg-[rgba(8,11,15,0.2)] font-mono text-[10px]">
-                          <span className="text-[var(--rf-mist)]/40">{shortcut.desc}</span>
-                          <kbd className="bg-[var(--rf-forest)] border border-[var(--rf-border)] px-1.5 py-0.5 rounded text-[9px] text-[var(--rf-volt)] font-semibold">
-                            {shortcut.key}
-                          </kbd>
+                    {/* SECTION: CLOUD AUTH */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b border-[var(--rf-border)] pb-1.5">
+                        <div className="flex items-center gap-2 text-[var(--rf-mist)]/50">
+                          <Cloud size={12} />
+                          <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">Cloud Persistence</h3>
                         </div>
-                      ))}
+                        {isAuthenticated() && <span className="text-[var(--rf-volt)] text-[9px] font-bold animate-pulse">CONNECTED</span>}
+                      </div>
+
+                      {isAuthenticated() ? (
+                        <div className="bg-[var(--rf-forest)]/20 border border-[var(--rf-border)] rounded-lg p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[var(--rf-volt)]/10 border border-[var(--rf-volt)]/30 flex items-center justify-center text-[var(--rf-volt)]"><User size={16} /></div>
+                            <div>
+                              <div className="text-xs font-bold text-white">{pb.authStore.model?.email}</div>
+                              <div className="text-[9px] font-mono text-[var(--rf-mist)]/50">SOTA Sync Enabled</div>
+                            </div>
+                          </div>
+                          <button onClick={handleLogout} className="p-2 hover:bg-[var(--rf-ember)]/10 rounded-md text-[var(--rf-ember)]/60 hover:text-[var(--rf-ember)] transition-colors"><LogOut size={16}/></button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex p-1 bg-[var(--rf-void)] rounded-lg border border-[var(--rf-border)] w-fit">
+                            <button onClick={() => setAuthMode('login')} className={`px-4 py-1.5 rounded-md text-[10px] font-mono font-bold transition-all ${authMode === 'login' ? 'bg-[var(--rf-forest)] text-[var(--rf-volt)]' : 'text-[var(--rf-mist)]/40 hover:text-white'}`}>LOGIN</button>
+                            <button onClick={() => setAuthMode('register')} className={`px-4 py-1.5 rounded-md text-[10px] font-mono font-bold transition-all ${authMode === 'register' ? 'bg-[var(--rf-forest)] text-[var(--rf-volt)]' : 'text-[var(--rf-mist)]/40 hover:text-white'}`}>REGISTER</button>
+                          </div>
+                          <form onSubmit={handleAuth} className="space-y-3">
+                            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-md px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-sky)]/50" required />
+                            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-md px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-sky)]/50" required />
+                            {authError && <div className="text-[9px] text-[var(--rf-ember)] font-mono">{authError}</div>}
+                            <button type="submit" disabled={authLoading} className="w-full py-2 bg-[var(--rf-sky)] text-[var(--rf-void)] text-[10px] font-mono font-bold rounded-md hover:opacity-90 disabled:opacity-30">{authLoading ? 'PROCESSING...' : (authMode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT')}</button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* SECTION: VAULT & KEYS */}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5"><Lock size={12} /><h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">Zero-Knowledge Vault</h3></div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-mono text-[var(--rf-mist)]/60">Vault Password (Required to sync keys)</label>
+                        <input type="password" placeholder="Master Password" value={vaultPassword} onChange={(e) => setVaultPassword(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] px-3 py-1.5 text-xs font-mono text-white outline-none focus:border-[var(--rf-volt)]/50"/>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5"><Key size={12} /><h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">API Credentials (BYOK)</h3></div>
+                        {PROVIDERS.filter(p => p.value !== 'auto').map(p => (
+                          <div key={p.value} className="flex flex-col gap-1.5">
+                            <label className="flex items-center justify-between text-[10px] font-mono text-[var(--rf-mist)]/60 capitalize">
+                              <span className="flex items-center gap-1.5"><p.icon className="w-3.5 h-3.5" /> {p.label} Key</span>
+                            </label>
+                            <input type="password" disabled={!vaultPassword && !serverConfig[p.value]} placeholder={!vaultPassword ? 'Set password first' : 'Enter key'} value={keys[p.value] || ''} onChange={(e) => handleKeyChange(p.value, e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-volt)]/50 disabled:opacity-30"/>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
+                  <div className="h-14 px-4 border-t border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-end gap-2 shrink-0">
+                    <button type="button" onClick={onClose} className="px-4 py-1.5 rounded-[6px] border border-[var(--rf-border)] text-xs font-mono text-[var(--rf-mist)]/60 hover:text-white transition-all cursor-pointer">Cancel</button>
+                    <button onClick={handleSave} disabled={!vaultPassword} className="flex items-center gap-2 px-6 py-1.5 rounded-[6px] bg-[var(--rf-volt)] text-[var(--rf-void)] text-xs font-mono font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-30"><Save size={13} /> Save & Sync</button>
+                  </div>
                 </div>
-
-                {/* FIXED FOOTER ACTIONS */}
-                <div className="h-14 px-4 border-t border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-end gap-2 shrink-0 select-none">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-1.5 rounded-[6px] border border-[var(--rf-border)] text-xs font-mono font-medium text-[var(--rf-mist)]/60 hover:text-white hover:bg-[var(--rf-forest)] transition-all cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-4 py-1.5 rounded-[6px] bg-[var(--rf-volt)] text-[var(--rf-void)] text-xs font-mono font-bold hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
-                  >
-                    <Save size={13} />
-                    Save Changes
-                  </button>
-                </div>
-              </form>
+              )}
             </motion.div>
           </div>
         </>

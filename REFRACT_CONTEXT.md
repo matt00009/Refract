@@ -20,9 +20,16 @@
 - [x] **Strict Runtime Validation** — Utilisation de Zod pour garantir le format JSON (Phase 1)
 - [x] **Lazy Loading Shiki** — Optimisation massive du bundle (Phase 1)
 - [x] **Zero-Knowledge Core** — Utilisation de la Web Crypto API pour le futur SaaS (Phase 1)
-- [ ] **WCAG 2.1 AA Compliance** — Accessibilité complète des Drawers et Sélecteurs (Phase 2)
-- [ ] **Visual Regressions** — Tests E2E automatisés via Playwright (Phase 2)
-- [ ] **PocketBase Integration** — Persistance Cloud temps réel (Phase 3)
+- [x] **WCAG 2.1 AA Compliance** — Accessibilité complète des Drawers et Sélecteurs (Phase 2)
+- [x] **Visual Regressions** — Tests E2E automatisés via Playwright (Phase 2)
+- [~] **PocketBase Integration** — Persistance Cloud temps réel (Phase 3 en cours)
+
+## 🔐 Architecture Zero-Knowledge (Comment ça marche ?)
+Refract utilise un modèle de sécurité "Confiance Zéro" pour vos clés API :
+1. **PBKDF2 :** Votre mot de passe de coffre-fort n'est jamais stocké. Il est utilisé pour dériver une clé cryptographique forte via 100 000 itérations de hachage.
+2. **AES-GCM :** Vos clés API (Claude, Gemini, etc.) sont chiffrées localement dans votre navigateur avec cet algorithme de niveau militaire.
+3. **Isolation :** Seul le "ciphertext" (donnée illisible) est stocké dans le `localStorage`. 
+4. **RAM Only :** Le déchiffrement ne se produit qu'en mémoire vive (RAM) lors de l'envoi d'une analyse. Le serveur de Refract reçoit la clé pour la transmettre au fournisseur IA, mais ne peut jamais la stocker de manière persistante sans votre mot de passe.
 
 ## 🛠️ Stack Technique Courante
 - **Server:** Node.js (tsx), Express, Helmet, CORS, Vercel AI SDK.

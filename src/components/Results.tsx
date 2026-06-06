@@ -204,6 +204,26 @@ export function Results({ result, loading, onReset }: ResultsProps) {
           </ul>
         </motion.div>
       )}
+
+      {/* Lateral Insights — AI Creativity Section */}
+      {result.insights && result.insights.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          className="rf-card p-4 space-y-2 border-[var(--rf-sky)]/30 bg-[var(--rf-sky)]/5 will-change-[opacity]"
+        >
+          <h3 className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-sky)] mb-3 font-bold">Architectural Insights</h3>
+          <ul className="space-y-1.5">
+            {result.insights.map((insight, i) => (
+              <li key={`insight-${i}`} className="text-xs text-[var(--rf-mist)]/80 flex gap-2 italic">
+                <span className="text-[var(--rf-sky)] font-bold font-mono">&bull;</span>
+                <span>{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      )}
     </div>
   );
 }

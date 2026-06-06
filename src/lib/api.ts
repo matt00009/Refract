@@ -1,16 +1,17 @@
 import type { AnalysisResult } from '../types/analysis';
 import { analysisResultSchema } from './schemas';
+import { decryptVault } from './crypto';
 
 /**
  * Sends code to the backend proxy for AI-powered analysis.
- * Reads locally stored API keys and forwards them via the `X-Provider-Key` header.
+ * Implements Zero-Knowledge decryption: keys are decrypted in-memory using the vault session key.
  *
  * @param code - The source code to analyze
  * @param language - The detected or selected programming language
  * @param provider - The AI provider to use (or 'auto')
  * @param model - Optional specific model override
  * @returns The validated analysis result
- * @throws Error if the request fails or the response is malformed
+ * @throws Error if the vault is locked, request fails, or response is malformed
  */
 export async function analyzeCode(
   code: string,
@@ -20,19 +21,39 @@ export async function analyzeCode(
 ): Promise<AnalysisResult> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
-  // Read locally stored API keys (stored in localStorage for BYOK support).
-  const savedKeys = localStorage.getItem('rf_api_keys');
-  if (savedKeys) {
+  // Attempt to retrieve and decrypt keys from the Zero-Knowledge vault
+  const encryptedKeys = localStorage.getItem('rf_api_keys_encrypted');
+  const vaultSessionKey = sessionStorage.getItem('rf_vault_session_key');
+
+  if (encryptedKeys) {
+    if (!vaultSessionKey) {
+      throw new Error('Terminal Vault is locked. Please open Settings (Ctrl+,) and enter your password.');
+    }
+
     try {
-      const keys = JSON.parse(savedKeys) as Record<string, string>;
+      const decrypted = await decryptVault(encryptedKeys, vaultSessionKey);
+      const keys = JSON.parse(decrypted) as Record<string, string>;
+      
       if (provider === 'auto') {
-        // In auto mode, send the entire keys object so the server can route intelligently
-        headers['X-Provider-Keys'] = savedKeys;
+        headers['X-Provider-Keys'] = decrypted;
       } else if (keys[provider]) {
         headers['X-Provider-Key'] = keys[provider];
       }
     } catch {
-      // Ignore malformed stored keys
+      throw new Error('Vault decryption failed. Your session may have expired or the password is incorrect.');
+    }
+  } else {
+    // Check legacy plaintext keys for backward compatibility (migration path)
+    const savedKeys = localStorage.getItem('rf_api_keys');
+    if (savedKeys) {
+      try {
+        const keys = JSON.parse(savedKeys) as Record<string, string>;
+        if (provider === 'auto') {
+          headers['X-Provider-Keys'] = savedKeys;
+        } else if (keys[provider]) {
+          headers['X-Provider-Key'] = keys[provider];
+        }
+      } catch { /* ignore */ }
     }
   }
 
@@ -56,7 +77,6 @@ export async function analyzeCode(
   // Validate the response using Zod schema to guarantee type safety
   try {
     const parsedData = analysisResultSchema.parse(data);
-    // Add latency and routed info which the server attaches outside the LLM payload
     return { 
       ...parsedData, 
       latency: data.latency,

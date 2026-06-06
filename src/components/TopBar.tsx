@@ -35,20 +35,25 @@ export function TopBar({
       {/* Center controls (Provider Selector) */}
       <div className="flex items-center">
         {/* Desktop capsule selector */}
-        <div className="hidden md:flex items-center gap-1 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-full px-1.5 py-1">
+        <div 
+          role="radiogroup" 
+          aria-label="Select AI provider"
+          className="hidden md:flex items-center gap-1 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-full px-1.5 py-1"
+        >
           {PROVIDERS.map((p) => {
             const isActive = p.value === provider;
             const Icon = p.icon;
             return (
               <button
                 key={p.value}
+                role="radio"
+                aria-checked={isActive}
                 onClick={() => onProviderChange(p.value)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none ${
                   isActive
                     ? 'bg-[var(--rf-void)] text-[var(--rf-mist)] border border-[var(--rf-border)] shadow-sm'
                     : 'text-[var(--rf-mist)]/60 hover:text-[var(--rf-mist)] border border-transparent'
                 }`}
-                aria-label={`Select AI Provider: ${p.label}`}
               >
                 {Icon && <Icon className="w-3.5 h-3.5" />}
                 <span>{p.label}</span>
@@ -63,7 +68,7 @@ export function TopBar({
             aria-label="Select AI provider"
             value={provider}
             onChange={(e) => onProviderChange(e.target.value as Provider)}
-            className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors focus:outline-none"
+            className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]"
           >
             {PROVIDERS.map((p) => (
               <option key={p.value} value={p.value}>
@@ -78,7 +83,7 @@ export function TopBar({
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onShare}
-          className="rf-btn-ghost"
+          className="rf-btn-ghost focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
           title="Share report"
           aria-label="Share report"
         >
@@ -87,7 +92,7 @@ export function TopBar({
 
         <button
           onClick={onSettingsClick}
-          className="rf-btn-ghost"
+          className="rf-btn-ghost focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
           title="API Settings"
           aria-label="API Settings"
         >
@@ -96,11 +101,9 @@ export function TopBar({
 
         <button
           onClick={onHistoryClick}
-          className="rf-btn-ghost"
+          className="rf-btn-ghost focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
           title="History"
           aria-label="Open history"
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--rf-sky)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '')}
         >
           <History size={16} />
         </button>
@@ -109,7 +112,7 @@ export function TopBar({
           onClick={onAnalyze}
           disabled={isLoading}
           aria-label={isLoading ? 'Analyzing code' : 'Analyze code'}
-          className="rf-btn-volt flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rf-btn-volt flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white"
         >
           <span>{isLoading ? 'Analyzing' : 'Analyze Code'}</span>
           {isLoading ? (

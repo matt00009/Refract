@@ -1,4 +1,5 @@
 import type { HistoryEntry } from '../types/analysis';
+import { pb, isAuthenticated, currentUserId } from './db';
 
 const STORAGE_KEY = 'refract_premium_history';
 
@@ -6,54 +7,124 @@ const STORAGE_KEY = 'refract_premium_history';
 export const LIMIT = 15;
 
 /**
- * Generates a unique ID for a history entry.
- * Uses `crypto.randomUUID()` when available, with a fallback.
+ * Loads all history entries. 
+ * Combines localStorage with PocketBase if authenticated.
  */
-function generateId(): string {
-  if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
-    try { return `rf-${window.crypto.randomUUID()}`; } catch { /* fallback below */ }
-  }
-  return `rf-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-}
-
-/**
- * Loads all history entries from localStorage.
- * Returns an empty array if storage is empty or corrupted.
- */
-export function loadHistory(): HistoryEntry[] {
+export async function loadHistory(): Promise<HistoryEntry[]> {
+  // 1. Load from LocalStorage (Primary for fast initial render)
+  let localData: HistoryEntry[] = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
+    localData = raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
   } catch {
-    return [];
+    localData = [];
   }
+
+  // 2. If authenticated, attempt to fetch latest from PocketBase
+  if (isAuthenticated()) {
+    try {
+      const records = await pb.collection('history').getList<HistoryEntry>(1, LIMIT, {
+        sort: '-ts',
+        filter: `user = "${currentUserId()}"`
+      });
+      
+      const cloudData = records.items;
+      
+      // If cloud has data, sync it back to local for future offline use
+      if (cloudData.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+        return cloudData;
+      }
+    } catch (err) {
+      console.warn('PocketBase history fetch failed, falling back to local:', err);
+    }
+  }
+
+  return localData;
 }
 
 /**
- * Saves a new entry to the history, prepending it and enforcing the LIMIT.
- *
- * @param entry - The entry data (without `id`, which is auto-generated)
- * @returns The saved entry with a generated `id`
+ * Saves a new entry to the history. 
+ * Persists to LocalStorage and attempts to sync with PocketBase.
  */
-export function saveToHistory(entry: Omit<HistoryEntry, 'id'>): HistoryEntry {
-  const current = loadHistory();
-  const item: HistoryEntry = { ...entry, id: generateId() };
+export async function saveToHistory(entry: Omit<HistoryEntry, 'id'>): Promise<HistoryEntry> {
+  const current = await loadHistory();
+  const ts = Date.now();
+  
+  // Create the record object
+  const item: HistoryEntry = { ...entry, id: '', ts };
+
+  // 1. Persist to PocketBase if authenticated
+  if (isAuthenticated()) {
+    try {
+      const record = await pb.collection('history').create({
+        ...item,
+        user: currentUserId(),
+      });
+      item.id = record.id;
+    } catch (err) {
+      console.error('PocketBase save failed:', err);
+      // Fallback ID for local-only entry
+      item.id = `rf-${ts}-${Math.random().toString(36).substring(2, 7)}`;
+    }
+  } else {
+    item.id = `rf-${ts}-${Math.random().toString(36).substring(2, 7)}`;
+  }
+
+  // 2. Persist to LocalStorage
   const updated = [item, ...current].slice(0, LIMIT);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  
   return item;
 }
 
-/** Clears all history entries from localStorage. */
-export function clearHistory(): void {
+/** Clears history from both LocalStorage and PocketBase. */
+export async function clearHistory(): Promise<void> {
   localStorage.removeItem(STORAGE_KEY);
+  
+  if (isAuthenticated()) {
+    try {
+      // Fetch all user records to delete them
+      const records = await pb.collection('history').getFullList({
+        filter: `user = "${currentUserId()}"`
+      });
+      
+      await Promise.all(records.map(r => pb.collection('history').delete(r.id)));
+    } catch (err) {
+      console.error('PocketBase clear failed:', err);
+    }
+  }
 }
 
 /**
- * Exports the current history as a downloadable JSON file.
- * Creates a temporary `<a>` element to trigger the download.
+ * Syncs legacy or offline history entries to the cloud.
  */
-export function exportHistoryJSON(): void {
-  const data = loadHistory();
+export async function syncLocalHistoryToCloud(): Promise<void> {
+  if (!isAuthenticated()) return;
+  
+  const local = await loadHistory();
+  if (local.length === 0) return;
+
+  try {
+    // Check which IDs are local-only (start with 'rf-')
+    const localOnly = local.filter(entry => entry.id.startsWith('rf-'));
+    
+    await Promise.all(localOnly.map(entry => 
+      pb.collection('history').create({
+        ...entry,
+        user: currentUserId(),
+        id: undefined // Let PB generate a real ID
+      })
+    ));
+    
+    // Reload and refresh cache
+    await loadHistory();
+  } catch (err) {
+    console.error('Cloud synchronization failed:', err);
+  }
+}
+
+export function exportHistoryJSON(data: HistoryEntry[]): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -65,13 +136,6 @@ export function exportHistoryJSON(): void {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Imports history entries from a raw JSON string.
- * Validates the structure and persists to localStorage.
- *
- * @param rawText - The raw JSON text to parse
- * @returns The imported entries, or `null` if validation fails
- */
 export function importHistoryJSON(rawText: string): HistoryEntry[] | null {
   try {
     const parsed = JSON.parse(rawText);

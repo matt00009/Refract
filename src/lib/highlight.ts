@@ -1,17 +1,18 @@
-import { getHighlighter, type BundledLanguage } from 'shiki';
+import { getHighlighter, type BundledLanguage, type Highlighter } from 'shiki';
+import { transformerNotationDiff, transformerNotationHighlight } from '@shikijs/transformers';
 import { CODE_LANGUAGES } from './constants';
 
-let highlighter: Awaited<ReturnType<typeof getHighlighter>> | null = null;
+let highlighter: Highlighter | null = null;
 
 /**
  * Returns a singleton Shiki highlighter instance.
  * Optimized for performance: initializes with NO languages loaded.
  */
-async function getHighlighterInstance() {
+async function getHighlighterInstance(): Promise<Highlighter> {
   if (!highlighter) {
     highlighter = await getHighlighter({
       themes: ['github-dark-default'],
-      langs: [], // Zero languages on initial load
+      langs: [],
     });
   }
   return highlighter;
@@ -21,14 +22,18 @@ async function getHighlighterInstance() {
  * Ensures a specific language grammar is loaded on demand.
  */
 async function ensureLanguageLoaded(lang: string) {
-  if (!highlighter) return;
+  const h = await getHighlighterInstance();
   const validLang = (CODE_LANGUAGES as readonly string[]).includes(lang)
     ? (lang as BundledLanguage)
     : 'javascript';
 
-  if (!highlighter.getLoadedLanguages().includes(validLang)) {
-    // Dynamic import of the grammar only when needed
-    await highlighter.loadLanguage(validLang);
+  if (!h.getLoadedLanguages().includes(validLang)) {
+    try {
+      await h.loadLanguage(validLang);
+    } catch (err) {
+      console.warn(`Shiki: Failed to load language '${validLang}'`, err);
+      return undefined;
+    }
   }
   return validLang;
 }
@@ -40,25 +45,27 @@ export async function highlightCode(code: string, language: string): Promise<str
   const h = await getHighlighterInstance();
   const validLang = await ensureLanguageLoaded(language) || 'javascript';
 
-  const highlighted = h.codeToHtml(code, {
+  return h.codeToHtml(code, {
     lang: validLang,
     theme: 'github-dark-default',
+    transformers: [
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      transformerNotationDiff() as any,
+      transformerNotationHighlight() as any,
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    ]
   });
-
-  return highlighted;
 }
 
 /**
- * Highlights code and returns structured token data.
+ * Highlights code and returns structured token data for custom rendering.
  */
 export async function highlightCodeToTokens(code: string, language: string) {
   const h = await getHighlighterInstance();
   const validLang = await ensureLanguageLoaded(language) || 'javascript';
 
-  const tokens = h.codeToTokens(code, {
+  return h.codeToTokens(code, {
     lang: validLang,
     theme: 'github-dark-default',
   });
-
-  return tokens;
 }

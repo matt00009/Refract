@@ -6,6 +6,7 @@ import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createMistral } from '@ai-sdk/mistral';
 import { analysisResultSchema } from '../src/lib/schemas.js';
 
 const app = express();
@@ -93,8 +94,15 @@ app.get('/api/health', (_req, res) => {
 
 const systemPrompt = `You are a senior software engineer performing a precise, helpful code review.
 Focus on identifying security vulnerabilities, performance bottlenecks, and structural code quality issues.
-Ensure all code snippets provided in the fix are runnable and exact.
-Provide step-by-step structural instructions in French for the fix_explanation.`;
+
+STRICT FIELD RULES:
+- "vulnerable_code": ONLY raw bad code lines. NO prose, NO markdown blocks.
+- "fix_code": ONLY raw fixed code lines. NO prose, NO markdown blocks.
+- "fix_explanation": Step-by-step resolution steps in French. NO markdown code blocks, NO backticks. Focus on the "how" and "why".
+- "description": General context about the issue.
+
+IMPORTANT: You MUST use "bug", "warning", or "suggestion" for severity.
+LIBERTY: You are encouraged to provide "insights" (architectural philosophy, meta-analysis) and you may add custom fields to the JSON if you find something exceptionally interesting.`;
 
 /**
  * Intelligent Router targeting 2025/2026 SOTA models.
@@ -103,29 +111,47 @@ function routeIntelligent(code: string, language: string, availableKeys: Set<str
   const size = code.length;
   const isAlgorithmic = ['python', 'rust', 'go', 'cpp', 'java'].includes(language);
   const isWeb = ['javascript', 'typescript', 'html', 'css'].includes(language);
+  const isSimpleLang = ['html', 'css', 'json', 'sql'].includes(language);
   const hasKey = (p: string) => availableKeys.has(p);
 
+  // 1. Context size routing (Gemini 2.5 Pro for very large payloads)
   if (size > 4000 && hasKey('gemini')) return { provider: 'gemini', model: 'gemini-2.5-pro-latest' };
   
+  // 2. High-precision reasoning routing (DeepSeek Reasoner or Claude 4.6 Sonnet)
   if (isAlgorithmic && size > 1000) {
     if (hasKey('deepseek')) return { provider: 'deepseek', model: 'deepseek-reasoner' };
     if (hasKey('anthropic')) return { provider: 'anthropic', model: 'claude-3-7-sonnet-latest' };
   }
 
+  // 3. Web / UI specific routing (Claude 4.6 Sonnet)
   if (isWeb && size > 1200 && hasKey('anthropic')) return { provider: 'anthropic', model: 'claude-3-7-sonnet-latest' };
   
-  if (['javascript', 'typescript', 'python'].includes(language) && hasKey('mistral')) {
-    return { provider: 'mistral', model: 'codestral-latest' };
+  // 4. SPEED-FIRST TIER: Groq for very short snippets or simple utility languages
+  // We use Llama 3.3 70B for Groq as it's the smartest available there
+  if (hasKey('groq') && (size < 800 || isSimpleLang)) {
+    return { provider: 'groq', model: 'llama-3.3-70b-versatile' };
   }
 
-  if (hasKey('groq')) return { provider: 'groq', model: 'llama-3.3-70b-versatile' };
+  // 5. Versatile High-Quality Coding (Mistral)
+  if (hasKey('mistral')) {
+    if (['javascript', 'typescript', 'python', 'go', 'rust', 'java', 'cpp'].includes(language)) {
+      return { provider: 'mistral', model: size > 1500 ? 'codestral-latest' : 'mistral-small-latest' };
+    }
+    return { provider: 'mistral', model: 'mistral-large-latest' };
+  }
+
+  // 6. High-Speed Intelligence Fallback (Gemini 2.0 Flash)
   if (hasKey('gemini')) return { provider: 'gemini', model: 'gemini-2.0-flash' };
-  if (hasKey('mistral')) return { provider: 'mistral', model: 'mistral-large-latest' };
-  if (hasKey('anthropic')) return { provider: 'anthropic', model: 'claude-3-5-haiku-latest' };
+
+  // 7. Standard Speed fallback
+  if (hasKey('groq')) return { provider: 'groq', model: 'llama-3.3-70b-versatile' };
+
+  // 8. Restricted Tier fallbacks
+  if (hasKey('anthropic')) return { provider: 'anthropic', model: 'claude-4-6-sonnet-latest' };
   if (hasKey('deepseek')) return { provider: 'deepseek', model: 'deepseek-chat' };
-  
+
   return { provider: 'gemini', model: 'gemini-2.0-flash' };
-}
+  }
 
 function selectModelForProvider(provider: string, code: string, isAlgorithmic: boolean): string {
   const isComplex = code.length > 1500 || isAlgorithmic;
@@ -188,7 +214,6 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     const startTime = Date.now();
 
     // Vercel AI SDK Provider instances
-    // We use createOpenAI for OpenAI compatible endpoints (Mistral, Groq, DeepSeek)
     let aiModel;
     switch (provider) {
       case 'anthropic':
@@ -198,9 +223,10 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
         aiModel = createGoogleGenerativeAI({ apiKey })(model);
         break;
       case 'mistral':
-        aiModel = createOpenAI({ baseURL: 'https://api.mistral.ai/v1', apiKey })(model);
+        aiModel = createMistral({ apiKey })(model);
         break;
       case 'groq':
+        // Using createOpenAI for Groq as it is more robust for their specific implementation of JSON mode
         aiModel = createOpenAI({ baseURL: 'https://api.groq.com/openai/v1', apiKey })(model);
         break;
       case 'deepseek':
@@ -211,22 +237,59 @@ app.post('/api/analyze', async (req: express.Request, res: express.Response) => 
     }
 
     // This handles the prompt and guarantees structured JSON output via Zod Schema
+    // Mistral and others support json_schema (object mode), while Groq is kept in JSON mode for maximum compatibility.
     const { object } = await generateObject({
       model: aiModel,
       schema: analysisResultSchema,
+      mode: provider === 'groq' ? 'json' : 'object',
       system: systemPrompt,
       prompt: `Analyze this ${language} code:\n\n${rawCode}`,
       temperature: temperature ?? 0.1,
       maxTokens: max_tokens ?? 2048,
     });
+
+    // ── Post-processing: Clean prose from code blocks ──
+    if (object.issues) {
+      object.issues.forEach((issue) => {
+        if (issue.fix_explanation) {
+          // Remove markdown code blocks and backticks from prose
+          issue.fix_explanation = issue.fix_explanation
+            .replace(/```[\s\S]*?```/g, '')
+            .replace(/`/g, '')
+            .trim();
+        }
+      });
+    }
     
     return res.json({ ...object, latency: Date.now() - startTime, routed: { provider, model } });
   } catch (error: unknown) {
     console.error('Analysis error:', error);
-    // Extract actual message from AI SDK error or standard error
     const msg = error instanceof Error ? error.message : 'Unknown error occurred during AI processing';
     return res.status(500).json({ error: msg });
   }
 });
 
-app.listen(port, () => console.log(`Refract SOTA router on port ${port}`));
+function startServer(retries = 5, delay = 1000) {
+  const server = app.listen(port, () => {
+    console.log(`Refract SOTA router on port ${port}`);
+  });
+
+  server.on('error', (error: Error & { code?: string }) => {
+    if (error.code === 'EADDRINUSE') {
+      if (retries > 0) {
+        console.warn(`Port ${port} is in use, retrying in ${delay}ms... (${retries} retries left)`);
+        setTimeout(() => {
+          server.close();
+          startServer(retries - 1, delay);
+        }, delay);
+      } else {
+        console.error(`Port ${port} is busy. Failed after maximum retries.`);
+        process.exit(1);
+      }
+    } else {
+      console.error('Server error:', error);
+    }
+  });
+}
+
+startServer();

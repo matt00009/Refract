@@ -83,19 +83,25 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
             ref={focusTrapRef}
             role="dialog"
             aria-modal="true"
-            aria-label="History"
+            aria-labelledby="history-title"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.25 }}
-            className="fixed right-0 top-0 bottom-0 w-[320px] bg-[var(--rf-depth)] border-l border-[var(--rf-border)] z-50 flex flex-col"
+            className="fixed right-0 top-0 bottom-0 w-[320px] bg-[var(--rf-depth)] border-l border-[var(--rf-border)] z-50 flex flex-col shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--rf-border)]">
-              <span className="text-xs font-bold uppercase tracking-widest text-[var(--rf-volt)]">History</span>
+              <span id="history-title" className="text-xs font-bold uppercase tracking-widest text-[var(--rf-volt)]">History</span>
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[var(--rf-mist)]/50 mr-2">{entries.length}/{LIMIT}</span>
-                <button onClick={onClose} aria-label="Close history" className="p-1 hover:bg-[var(--rf-forest)] rounded transition-colors">
+                <span className="text-[10px] text-[var(--rf-mist)]/50 mr-2" aria-label={`${entries.length} of ${LIMIT} entries used`}>
+                  {entries.length}/{LIMIT}
+                </span>
+                <button 
+                  onClick={onClose} 
+                  aria-label="Close history" 
+                  className="p-1 hover:bg-[var(--rf-forest)] rounded transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none"
+                >
                   <X size={16} className="text-[var(--rf-mist)]/50" />
                 </button>
               </div>
@@ -104,10 +110,10 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
             {/* Backup controls */}
             <div className="flex gap-2 px-4 py-2 border-b border-[var(--rf-border)]">
               <button
-                onClick={exportHistoryJSON}
+                onClick={() => exportHistoryJSON(entries)}
                 disabled={entries.length === 0}
                 aria-label="Export history as JSON"
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--rf-sky)] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] border border-[var(--rf-border)] rounded-[6px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--rf-sky)] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] border border-[var(--rf-border)] rounded-[6px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-1 focus-visible:ring-[var(--rf-sky)] focus:outline-none"
               >
                 <Download size={12} />
                 Export JSON
@@ -115,7 +121,7 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
               <button
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Import history from JSON file"
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--rf-mist)] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] border border-[var(--rf-border)] rounded-[6px] transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--rf-mist)] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] border border-[var(--rf-border)] rounded-[6px] transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-mist)] focus:outline-none"
               >
                 <Upload size={12} />
                 Import JSON
@@ -124,10 +130,10 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
             </div>
 
             {/* Entries */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 diff-scrollbar">
               {entries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 gap-2">
-                  <span className="text-2xl">🕳</span>
+                <div className="flex flex-col items-center justify-center h-32 gap-2" role="status">
+                  <span className="text-2xl" aria-hidden="true">🕳</span>
                   <p className="text-xs text-[var(--rf-mist)]/50 text-center">No history yet</p>
                 </div>
               ) : (
@@ -145,7 +151,7 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                     <button
                       key={entry.id}
                       onClick={() => { onSelect(entry); onClose(); }}
-                      className="w-full text-left p-3 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[8px] hover:border-[var(--rf-volt)]/30 hover:bg-[var(--rf-surface)] transition-all group"
+                      className="w-full text-left p-3 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[8px] hover:border-[var(--rf-volt)]/30 hover:bg-[var(--rf-surface)] transition-all group focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none"
                     >
                       <div className="flex items-center gap-2 mb-1.5">
                         <span
@@ -164,7 +170,7 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                         </span>
                         <span className="text-[10px] text-[var(--rf-mist)]/50">{timeAgo(entry.ts)}</span>
                       </div>
-                      <p className="text-[11px] text-[var(--rf-mist)] line-clamp-1 mb-1">{entry.summary}</p>
+                      <p className="text-[11px] text-[var(--rf-mist)] line-clamp-1 mb-1 font-bold">{entry.summary}</p>
                       <p className="text-[10px] text-[var(--rf-mist)]/40 font-mono line-clamp-1">{entry.code}</p>
                     </button>
                   );
@@ -178,7 +184,7 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                 <button
                   onClick={onClear}
                   aria-label="Clear all history"
-                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[var(--rf-ember)] hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[var(--rf-ember)] hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-ember)] focus:outline-none"
                 >
                   <Trash2 size={13} />
                   Clear all
