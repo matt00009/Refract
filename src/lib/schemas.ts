@@ -27,7 +27,46 @@ export const analysisResultSchema = z.object({
   issues: z.array(issueSchema).describe('List of detected issues, maximum 8.'),
   strengths: z.array(z.string()).describe('List of 2-3 key strengths in the code.'),
   insights: z.array(z.string()).optional().describe('Optional lateral insights or architectural advice.'),
+  latency: z.number().optional().describe('Server-side analysis latency in milliseconds.'),
+  routed: z.object({
+    provider: z.string(),
+    model: z.string(),
+  }).optional().describe('Details about the AI provider and model used.'),
+  usage: z.object({
+    promptTokens: z.number(),
+    completionTokens: z.number(),
+    totalTokens: z.number(),
+  }).optional().describe('Token usage metrics for the analysis.'),
 }).passthrough(); // Allow AI to return entirely new top-level keys
+
+export const settingsSchema = z.object({
+  temperature: z.number().min(0).max(2).default(0.1),
+  maxTokens: z.number().min(1).max(32000).default(2048),
+  provider: z.enum(['auto', 'groq', 'mistral', 'deepseek', 'anthropic', 'gemini']).default('auto'),
+});
+
+export const historyEntrySchema = z.object({
+  id: z.string(),
+  ts: z.number(),
+  lang: z.string(),
+  code: z.string(),
+  score: z.number(),
+  summary: z.string(),
+  provider: z.enum(['auto', 'groq', 'mistral', 'deepseek', 'anthropic', 'gemini']),
+  resultCache: analysisResultSchema,
+});
 
 export type ZodIssue = z.infer<typeof issueSchema>;
 export type ZodAnalysisResult = z.infer<typeof analysisResultSchema>;
+export type ZodHistoryEntry = z.infer<typeof historyEntrySchema>;
+export type Settings = z.infer<typeof settingsSchema>;
+
+export const errorResponseSchema = z.object({
+  error: z.string(),
+  code: z.enum(['INTERNAL_ERROR', 'PROVIDER_ERROR', 'MODEL_NOT_FOUND', 'TIMEOUT', 'RATE_LIMIT', 'AUTH_ERROR', 'INVALID_REQUEST']),
+  status: z.number(),
+  details: z.any().optional(),
+  timestamp: z.string().optional(),
+});
+
+export type ErrorResponse = z.infer<typeof errorResponseSchema>;

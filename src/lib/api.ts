@@ -1,6 +1,7 @@
 import type { AnalysisResult } from '../types/analysis';
 import { analysisResultSchema } from './schemas';
 import { decryptVault } from './crypto';
+import { loadSettings } from './settings';
 
 /**
  * Sends code to the backend proxy for AI-powered analysis.
@@ -42,46 +43,35 @@ export async function analyzeCode(
     } catch {
       throw new Error('Vault decryption failed. Your session may have expired or the password is incorrect.');
     }
-  } else {
-    // Check legacy plaintext keys for backward compatibility (migration path)
-    const savedKeys = localStorage.getItem('rf_api_keys');
-    if (savedKeys) {
-      try {
-        const keys = JSON.parse(savedKeys) as Record<string, string>;
-        if (provider === 'auto') {
-          headers['X-Provider-Keys'] = savedKeys;
-        } else if (keys[provider]) {
-          headers['X-Provider-Key'] = keys[provider];
-        }
-      } catch { /* ignore */ }
-    }
   }
 
-  // Get advanced settings from localStorage
-  const temperature = parseFloat(localStorage.getItem('rf_temperature') || '0.1');
-  const max_tokens = parseInt(localStorage.getItem('rf_max_tokens') || '2000');
+  // Get advanced settings using the validated loader
+  const settings = loadSettings();
 
   const response = await fetch('/api/analyze', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ code, language, provider, model, temperature, max_tokens }),
+    body: JSON.stringify({ 
+      code, 
+      language, 
+      provider, 
+      model, 
+      temperature: settings.temperature, 
+      max_tokens: settings.maxTokens 
+    }),
   });
 
+
   if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error((err as { error?: string }).error || `HTTP ${response.status}`);
+    const err = await response.json().catch(() => ({ error: response.statusText })) as { error?: string };
+    throw new Error(err.error || `HTTP ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as unknown;
 
   // Validate the response using Zod schema to guarantee type safety
   try {
-    const parsedData = analysisResultSchema.parse(data);
-    return { 
-      ...parsedData, 
-      latency: data.latency,
-      routed: data.routed 
-    } as AnalysisResult;
+    return analysisResultSchema.parse(data);
   } catch (error) {
     console.error('Client-side validation failed:', error);
     throw new Error('Received malformed data from the server.');

@@ -1,5 +1,7 @@
 import type { HistoryEntry } from '../types/analysis';
 import { pb, isAuthenticated, currentUserId } from './db';
+import { historyEntrySchema } from './schemas';
+import { z } from 'zod';
 
 const STORAGE_KEY = 'refract_premium_history';
 
@@ -15,7 +17,16 @@ export async function loadHistory(): Promise<HistoryEntry[]> {
   let localData: HistoryEntry[] = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    localData = raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const result = z.array(historyEntrySchema).safeParse(parsed);
+      if (result.success) {
+        localData = result.data;
+      } else {
+        console.error('Local history validation failed:', result.error);
+        localData = [];
+      }
+    }
   } catch {
     localData = [];
   }
@@ -139,20 +150,14 @@ export function exportHistoryJSON(data: HistoryEntry[]): void {
 export function importHistoryJSON(rawText: string): HistoryEntry[] | null {
   try {
     const parsed = JSON.parse(rawText);
-    if (!Array.isArray(parsed)) return null;
+    const result = z.array(historyEntrySchema).safeParse(parsed);
 
-    const isValid = parsed.every(
-      (item): item is HistoryEntry =>
-        item &&
-        typeof item.id === 'string' &&
-        typeof item.code === 'string' &&
-        typeof item.score === 'number' &&
-        item.resultCache !== undefined
-    );
+    if (!result.success) {
+      console.error('Import validation failed:', result.error);
+      return null;
+    }
 
-    if (!isValid) return null;
-
-    const bounded = parsed.slice(0, LIMIT);
+    const bounded = result.data.slice(0, LIMIT);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bounded));
     return bounded;
   } catch {

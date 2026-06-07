@@ -16,15 +16,16 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
   const circumference = 2 * Math.PI * RADIUS; // ~377
   const strokeDashoffset = circumference - (normalizedScore / 100) * circumference;
   const isExcellent = normalizedScore >= 90;
+  const isCritical = normalizedScore < 50;
 
   const getColor = () => {
-    if (normalizedScore < 50) return 'var(--rf-ember)';
+    if (isCritical) return 'var(--rf-ember)';
     if (normalizedScore < 75) return 'var(--rf-warn)';
     return 'var(--rf-volt)';
   };
 
   return (
-    <div className={`relative w-32 h-32 select-none ${isExcellent ? 'rf-volt-glow' : ''}`}>
+    <div className={`relative w-32 h-32 ${isExcellent ? 'rf-volt-glow' : ''} ${isCritical ? 'rf-ember-glitch' : ''}`}>
       <svg
         className="absolute inset-0 transform -rotate-90"
         viewBox="0 0 128 128"
@@ -44,7 +45,7 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset }}
           transition={{ duration: 1.2, ease: 'easeOut' }}
-          strokeLinecap="round"
+          strokeLinecap="butt"
         />
       </svg>
 

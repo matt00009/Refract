@@ -9,7 +9,7 @@ const generateIV = () => crypto.getRandomValues(new Uint8Array(12));
 /**
  * Derives a cryptographic key from a user-provided vault password using PBKDF2.
  */
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(password: string, salt: Uint8Array, iterations = 600000): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -23,7 +23,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     {
       name: 'PBKDF2',
       salt,
-      iterations: 100000,
+      iterations,
       hash: 'SHA-256'
     },
     keyMaterial,
@@ -41,22 +41,24 @@ export async function encryptVault(plaintext: string, password: string): Promise
   if (!plaintext) return '';
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = generateIV();
-  const key = await deriveKey(password, salt);
+  // Always use the latest SOTA iteration count (600k) for new encryptions
+  const key = await deriveKey(password, salt, 600000);
   
   const enc = new TextEncoder();
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv, tagLength: 128 },
     key,
     enc.encode(plaintext)
   );
 
-  // Combine salt, iv, and ciphertext into a single buffer
+  // Combine salt, iv, and ciphertext (which includes the 16-byte tag)
   const payload = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
   payload.set(salt, 0);
   payload.set(iv, salt.length);
   payload.set(new Uint8Array(ciphertext), salt.length + iv.length);
 
-  return btoa(String.fromCharCode(...payload));
+  // Robust binary-to-base64 conversion to avoid stack overflow on large data
+  return btoa(Array.from(payload).map(b => String.fromCharCode(b)).join(''));
 }
 
 /**
@@ -65,27 +67,37 @@ export async function encryptVault(plaintext: string, password: string): Promise
 export async function decryptVault(encryptedBase64: string, password: string): Promise<string> {
   if (!encryptedBase64) return '';
   
+  const payloadStr = atob(encryptedBase64);
+  const payload = new Uint8Array(payloadStr.length);
+  for (let i = 0; i < payloadStr.length; i++) {
+    payload[i] = payloadStr.charCodeAt(i);
+  }
+
+  const salt = payload.slice(0, 16);
+  const iv = payload.slice(16, 28);
+  const ciphertext = payload.slice(28);
+
+  // Try modern 600k iterations first
   try {
-    const payloadStr = atob(encryptedBase64);
-    const payload = new Uint8Array(payloadStr.length);
-    for (let i = 0; i < payloadStr.length; i++) {
-      payload[i] = payloadStr.charCodeAt(i);
-    }
-
-    const salt = payload.slice(0, 16);
-    const iv = payload.slice(16, 28);
-    const ciphertext = payload.slice(28);
-
-    const key = await deriveKey(password, salt);
+    const key = await deriveKey(password, salt, 600000);
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      key,
+      { name: 'AES-GCM', iv, tagLength: 128 }, 
+      key, 
       ciphertext
     );
-
-    const dec = new TextDecoder();
-    return dec.decode(decrypted);
+    return new TextDecoder().decode(decrypted);
   } catch {
-    throw new Error('Invalid vault password or corrupted data');
+    // If it fails, try legacy 100k iterations (migration support)
+    try {
+      const key = await deriveKey(password, salt, 100000);
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 }, 
+        key, 
+        ciphertext
+      );
+      return new TextDecoder().decode(decrypted);
+    } catch {
+      throw new Error('Invalid vault password or corrupted data');
+    }
   }
 }

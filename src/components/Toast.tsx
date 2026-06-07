@@ -1,9 +1,7 @@
-import { useState, useCallback } from 'react';
+import { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
-
-/** Toast notification type. */
-export type ToastType = 'success' | 'error' | 'warning';
+import { ToastType, ToastItem } from '../types/toast';
 
 interface ToastProps {
   message: string;
@@ -12,7 +10,7 @@ interface ToastProps {
 }
 
 /** Individual toast notification with icon, message, and close button. */
-export function Toast({ message, type, onClose }: ToastProps) {
+export const Toast = memo(function Toast({ message, type, onClose }: ToastProps) {
   return (
     <motion.div
       role="alert"
@@ -35,13 +33,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
       </button>
     </motion.div>
   );
-}
-
-interface ToastItem {
-  id: string;
-  message: string;
-  type: ToastType;
-}
+});
 
 interface ToastContainerProps {
   toasts: ToastItem[];
@@ -64,23 +56,4 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
       </AnimatePresence>
     </div>
   );
-}
-
-/** Hook to manage toast notifications. */
-export function useToasts() {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-
-  const addToast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = Math.random().toString(36).substring(2, 11);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  return { toasts, addToast, removeToast };
 }

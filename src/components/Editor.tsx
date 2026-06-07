@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, memo, useDeferredValue } from 'react';
 import { Copy, Trash2, Check, Maximize2, Minimize2 } from 'lucide-react';
-import { highlightCodeToTokens } from '../lib/highlight';
+import { type ThemedToken } from 'shiki';
+import { highlightCodeToTokens, ensureLanguageLoaded } from '../lib/highlight';
 import { LANGUAGES as CONST_LANGUAGES } from '../lib/constants';
 import { DetectionResult, detectLanguage } from '../lib/detect';
 
@@ -26,16 +27,12 @@ interface EditorProps {
   detection?: DetectionResult | null;
 }
 
-interface ShikiToken {
-  content: string;
-  color?: string;
-}
-
 /**
  * Text editor component with line numbers, code highlighting, language auto-detection,
  * and integrated language selector.
+ * Optimized with React.memo and useDeferredValue for fluid typing performance.
  */
-export function Editor({
+export const Editor = memo(function Editor({
   code,
   language,
   onChange,
@@ -52,49 +49,85 @@ export function Editor({
   const [showPlaceholder, setShowPlaceholder] = useState(code.length === 0);
   const [copied, setCopied] = useState(false);
 
+  // Defer highlighting to keep input responsive
+  const deferredCode = useDeferredValue(code);
+  const deferredLanguage = useDeferredValue(language);
+
+  // Pre-load language grammar when it changes to improve responsiveness
+  useEffect(() => {
+    if (language && language !== 'auto') {
+      ensureLanguageLoaded(language);
+    }
+  }, [language]);
+
   const charCount = code.length;
   const maxChars = 4000;
-  const lines = useMemo(() => code.split('\n'), [code]);
+  
+  // High-performance line count calculation
+  const lineCount = useMemo(() => {
+    let count = 1;
+    for (let i = 0; i < code.length; i++) {
+      if (code[i] === '\n') count++;
+    }
+    return count;
+  }, [code]);
+
+  // Pre-calculate line number elements to avoid expensive Array.from on each render
+  const lineNumberElements = useMemo(() => {
+    const nums = [];
+    for (let i = 1; i <= lineCount; i++) {
+      nums.push(
+        <div
+          key={i}
+          className="h-[26px] text-right text-[11px] font-mono text-[var(--rf-border)] leading-[1.65]"
+        >
+          {i}
+        </div>
+      );
+    }
+    return nums;
+  }, [lineCount]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const highlightCode = async () => {
-        if (code) {
-          try {
-            const tokens = await highlightCodeToTokens(code, language);
-            let html = '';
+    const highlightCode = async () => {
+      if (deferredCode) {
+        try {
+          const tokens = await highlightCodeToTokens(deferredCode, deferredLanguage);
+          const htmlParts: string[] = [];
 
-            const tokenLines = (Array.isArray(tokens) ? tokens : (tokens as { tokens: ShikiToken[][] }).tokens || []) as ShikiToken[][];
-            for (const line of tokenLines) {
-              for (const token of line) {
-                const color = token.color || '#E8F0E0';
-                html += `<span style="color: ${color}">${token.content
-                  .replace(/&/g, '&amp;')
-                  .replace(/</g, '&lt;')
-                  .replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;')
-                  .replace(/'/g, '&#39;')}</span>`;
-              }
-              html += '\n';
+          // Support both direct array and wrapped response if Shiki changes
+          // Strictly typed to avoid 'any'
+          const tokenLines = (Array.isArray(tokens) ? tokens : (tokens as { tokens: ThemedToken[][] }).tokens) as ThemedToken[][];
+          
+          for (const line of tokenLines) {
+            for (const token of line) {
+              const color = token.color || '#E8F0E0';
+              htmlParts.push(`<span style="color: ${color}">`);
+              htmlParts.push(token.content
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;'));
+              htmlParts.push('</span>');
             }
-
-            setHighlightHtml(html);
-          } catch (error) {
-            console.error('Highlight error:', error);
-            const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            setHighlightHtml(escapedCode);
+            htmlParts.push('\n');
           }
-        } else {
-          setHighlightHtml('');
+
+          setHighlightHtml(htmlParts.join(''));
+        } catch (error) {
+          console.error('Highlight error:', error);
+          const escapedCode = deferredCode.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          setHighlightHtml(escapedCode);
         }
-        setShowPlaceholder(code.length === 0);
-      };
+      } else {
+        setHighlightHtml('');
+      }
+      setShowPlaceholder(deferredCode.length === 0);
+    };
 
-      highlightCode();
-    }, 150);
-
-    return () => clearTimeout(timer);
-  }, [code, language]);
+    highlightCode();
+  }, [deferredCode, deferredLanguage]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     let newCode = e.target.value;
@@ -165,15 +198,15 @@ export function Editor({
   return (
     <div className="h-full flex flex-col bg-[var(--rf-depth)] border-r border-[var(--rf-border)] relative">
       {/* Editor Toolbar */}
-      <div className="h-9 px-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-between shrink-0">
+      <div className="h-9 px-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)] flex items-center justify-between shrink-0 relative z-20">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--rf-mist)]/50 font-mono font-bold">Input Buffer</span>
+          <span className="rf-micro-caps text-[var(--rf-mist)]/50 font-bold">Input Buffer</span>
           
           <select
             aria-label="Select language"
             value={language}
             onChange={(e) => onLanguageChange(e.target.value)}
-            className="px-2 py-0.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[4px] text-[10px] font-mono text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors focus:outline-none"
+            className="px-2 py-0.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm text-[10px] font-mono text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] hover:border-[var(--rf-volt)]/40 transition-all focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]/30"
           >
             {LANGUAGES.map((l) => (
               <option key={l.value} value={l.value}>{l.label}</option>
@@ -181,8 +214,8 @@ export function Editor({
           </select>
 
           {isFocusMode && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--rf-volt)]/10 text-[var(--rf-volt)] font-bold animate-pulse">
-              FOCUS ACTIVE
+            <span className="text-[9px] px-2 py-0.5 border border-[var(--rf-volt)]/30 bg-[var(--rf-volt)]/10 text-[var(--rf-volt)] font-bold tracking-[0.1em] animate-pulse">
+              FOCUS_ACTIVE
             </span>
           )}
 
@@ -252,14 +285,7 @@ export function Editor({
         {/* Line numbers */}
         <div className="w-12 border-r border-[var(--rf-border)] flex flex-col overflow-hidden select-none bg-[var(--rf-void)] shrink-0">
           <div ref={lineNumRef} className="flex-1 overflow-hidden pt-4 pr-3">
-            {lines.map((_line: string, i: number) => (
-              <div
-                key={i}
-                className="h-[26px] text-right text-[11px] font-mono text-[var(--rf-border)] leading-[1.65]"
-              >
-                {i + 1}
-              </div>
-            ))}
+            {lineNumberElements}
           </div>
         </div>
 
@@ -268,13 +294,17 @@ export function Editor({
           {/* Highlight layer */}
           <div
             ref={highlightRef}
+            aria-hidden="true"
             className="absolute inset-0 p-4 overflow-hidden pointer-events-none text-[13px] font-mono leading-[1.65] whitespace-pre-wrap break-words"
             dangerouslySetInnerHTML={{ __html: highlightHtml }}
           />
 
           {/* Placeholder */}
           {showPlaceholder && (
-            <div className="absolute inset-0 p-4 text-[13px] font-mono leading-[1.65] text-[var(--rf-mist)]/30 pointer-events-none whitespace-pre-wrap break-words">
+            <div 
+              aria-hidden="true"
+              className="absolute inset-0 p-4 text-[13px] font-mono leading-[1.65] text-[var(--rf-mist)]/30 pointer-events-none whitespace-pre-wrap break-words"
+            >
               {`function analyzeCode(code) {
   // Paste your code here
   return review;
@@ -299,10 +329,11 @@ export function Editor({
         </div>
 
         {/* Character counter (Floating in bottom-right corner of editor pane) */}
-        <div className="absolute bottom-0 right-0 px-2 py-1 text-[10px] font-mono text-[var(--rf-mist)]/50 bg-[var(--rf-depth)] border-t border-l border-[var(--rf-border)] rounded-tl-[8px] z-10 select-none">
-          {charCount} / {maxChars}
+        <div className={`absolute bottom-0 right-0 px-3 py-1 text-[9px] font-mono border-t border-l border-[var(--rf-border)] rounded-tl-sm z-10 select-none transition-colors ${charCount > maxChars * 0.9 ? 'text-[var(--rf-ember)] bg-[var(--rf-ember)]/10 animate-pulse' : 'text-[var(--rf-mist)]/30 bg-[var(--rf-void)]'}`}>
+          <span className="tracking-widest uppercase mr-2">Buffer:</span>
+          {charCount.toLocaleString()} / {maxChars}
         </div>
       </div>
     </div>
   );
-}
+});

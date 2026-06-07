@@ -5,7 +5,8 @@ import { Results } from './components/Results';
 import { HistoryDrawer } from './components/HistoryDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { Onboarding } from './components/Onboarding';
-import { ToastContainer, useToasts } from './components/Toast';
+import { ToastContainer } from './components/Toast';
+import { useToasts } from './hooks/useToasts';
 import { detectLanguage, DetectionResult } from './lib/detect';
 import { analyzeCode } from './lib/api';
 import { loadHistory, saveToHistory, clearHistory, LIMIT, syncLocalHistoryToCloud } from './lib/history';
@@ -173,18 +174,19 @@ export default function App() {
   }, [result, language, addToast]);
 
   return (
-    <div className={`min-h-screen bg-[var(--rf-void)] text-[var(--rf-mist)] selection:bg-[var(--rf-volt)] selection:text-[var(--rf-void)] ${focusMode ? 'rf-focus-mode' : ''}`}>
+    <div className={`min-h-screen bg-[var(--rf-void)] text-[var(--rf-mist)] selection:bg-[var(--rf-volt)] selection:text-[var(--rf-void)] rf-crt-effect ${focusMode ? 'rf-focus-mode' : ''}`}>
       <TopBar provider={provider} onProviderChange={setProvider} onAnalyze={handleAnalyze} onHistoryClick={() => setHistoryOpen(true)} onSettingsClick={() => setSettingsOpen(true)} onShare={handleShare} isLoading={loading} />
       <main className="pt-[52px] h-[calc(100vh)] flex overflow-hidden">
-        <div className={`flex-1 transition-all duration-500 ease-in-out ${focusMode ? 'max-w-full' : 'max-w-[55%]'}`}>
+        <div className={`flex-1 transition-all duration-500 ease-in-out rf-net-grid ${focusMode ? 'max-w-full' : 'max-w-[55%]'}`}>
           <Editor code={code} language={language} onChange={setCode} onAnalyze={handleAnalyze} onLanguageChange={setLanguage} isFocusMode={focusMode} onFocusToggle={() => setFocusMode(!focusMode)} detection={detection} />
         </div>
         {!focusMode && (
-          <div className="flex-1 border-l border-[var(--rf-border)] bg-[var(--rf-depth)] overflow-hidden">
-            <Results result={result} loading={loading} onReset={() => setResult(null)} />
+          <div className="flex-1 border-l border-[var(--rf-border)] bg-[var(--rf-depth)] flex flex-col rf-net-grid">
+            <Results result={result} loading={loading} onReset={() => setResult(null)} language={language} />
           </div>
         )}
       </main>
+
       <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} entries={history} onSelect={handleHistorySelect} onClear={handleClearHistory} onImport={(entries) => setHistory(entries)} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}

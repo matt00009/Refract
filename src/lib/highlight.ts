@@ -1,27 +1,38 @@
-import { getHighlighter, type BundledLanguage, type Highlighter } from 'shiki';
+import { getHighlighter, type BundledLanguage, type Highlighter, type ShikiTransformer } from 'shiki';
 import { transformerNotationDiff, transformerNotationHighlight } from '@shikijs/transformers';
 import { CODE_LANGUAGES } from './constants';
 
 let highlighter: Highlighter | null = null;
+let initPromise: Promise<Highlighter> | null = null;
 
 /**
  * Returns a singleton Shiki highlighter instance.
  * Optimized for performance: initializes with NO languages loaded.
  */
 async function getHighlighterInstance(): Promise<Highlighter> {
-  if (!highlighter) {
-    highlighter = await getHighlighter({
-      themes: ['github-dark-default'],
-      langs: [],
-    });
-  }
-  return highlighter;
+  if (highlighter) return highlighter;
+  if (initPromise) return initPromise;
+
+  initPromise = getHighlighter({
+    themes: ['github-dark-default'],
+    langs: [],
+  }).then((h) => {
+    highlighter = h;
+    // Pre-warm cache for the most common languages in the background
+    setTimeout(() => {
+      h.loadLanguage('javascript').catch(() => {});
+      h.loadLanguage('typescript').catch(() => {});
+    }, 500);
+    return h;
+  });
+
+  return initPromise;
 }
 
 /**
  * Ensures a specific language grammar is loaded on demand.
  */
-async function ensureLanguageLoaded(lang: string) {
+export async function ensureLanguageLoaded(lang: string) {
   const h = await getHighlighterInstance();
   const validLang = (CODE_LANGUAGES as readonly string[]).includes(lang)
     ? (lang as BundledLanguage)
@@ -49,10 +60,8 @@ export async function highlightCode(code: string, language: string): Promise<str
     lang: validLang,
     theme: 'github-dark-default',
     transformers: [
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      transformerNotationDiff() as any,
-      transformerNotationHighlight() as any,
-      /* eslint-enable @typescript-eslint/no-explicit-any */
+      transformerNotationDiff() as ShikiTransformer,
+      transformerNotationHighlight() as ShikiTransformer,
     ]
   });
 }

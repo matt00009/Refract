@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Shield, Sparkles, Lock, Key } from 'lucide-react';
 import { encryptVault } from '../lib/crypto';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -11,6 +12,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [step, setStep] = useState(0);
   const [vaultPass, setVaultPass] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(true);
 
   const STEPS = [
     {
@@ -49,6 +51,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       
       localStorage.setItem('rf_vault_integrity', encrypted);
       localStorage.setItem('rf_api_keys_encrypted', await encryptVault('{}', vaultPass));
+      localStorage.removeItem('rf_api_keys'); // Clear legacy plaintext keys
       sessionStorage.setItem('rf_vault_session_key', vaultPass);
       
       setStep(step + 1);
@@ -71,9 +74,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   return (
     <motion.div
+      ref={focusTrapRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+      aria-describedby="onboarding-description"
       className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4"
     >
       <div className="w-full max-w-[500px] relative">
@@ -85,16 +93,17 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[10px] p-8 flex flex-col items-center text-center"
+            aria-live="polite"
           >
-            <div className="mb-6 bg-[var(--rf-forest)] p-4 rounded-full border border-[var(--rf-border)]">
+            <div className="mb-6 bg-[var(--rf-forest)] p-4 rounded-full border border-[var(--rf-border)]" aria-hidden="true">
               {currentStepData.icon}
             </div>
             
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+            <h2 id="onboarding-title" className="text-2xl font-bold text-white mb-2 tracking-tight">
               {currentStepData.title}
             </h2>
             
-            <p className="text-sm text-[var(--rf-mist)] leading-relaxed mb-6 max-w-[400px]">
+            <p id="onboarding-description" className="text-sm text-[var(--rf-mist)] leading-relaxed mb-6 max-w-[400px]">
               {currentStepData.description}
             </p>
 

@@ -40,6 +40,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
     requestAnimationFrame(focusFirst);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
+
       if (e.key === 'Escape' && onEscape) {
         e.preventDefault();
         onEscape();

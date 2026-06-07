@@ -28,17 +28,40 @@ export function TopBar({
   return (
     <div className="fixed top-0 left-0 right-0 h-[52px] bg-[var(--rf-void)] border-b border-[var(--rf-border)] flex items-center justify-between px-4 z-50">
       {/* Brand */}
-      <div className="flex items-center gap-1.5 shrink-0 select-none">
-        <span className="font-mono text-[var(--rf-volt)] font-bold text-lg tracking-tighter">&gt;_ refract</span>
+      <div className="flex items-center gap-1.5 shrink-0 select-none group cursor-pointer">
+        <span className="font-mono text-[var(--rf-volt)] font-bold text-lg tracking-tighter group-hover:text-shadow-volt transition-all">&gt;_ refract</span>
       </div>
 
       {/* Center controls (Provider Selector) */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-4">
+        {/* Status Indicator */}
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1 border border-[var(--rf-border)] bg-[var(--rf-forest)]/30 rounded-sm select-none">
+          <div className={`h-1.5 w-1.5 rounded-full ${isLoading ? 'bg-[var(--rf-volt)] animate-pulse' : 'bg-[var(--rf-sky)]'} shadow-[0_0_8px_rgba(121,192,255,0.3)]`} />
+          <span className="text-[9px] font-mono tracking-widest text-[var(--rf-mist)]/50 uppercase">
+            {isLoading ? 'Processing' : 'Terminal Ready'}
+          </span>
+        </div>
+
         {/* Desktop capsule selector */}
         <div 
           role="radiogroup" 
           aria-label="Select AI provider"
-          className="hidden md:flex items-center gap-1 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-full px-1.5 py-1"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+              const currentIndex = PROVIDERS.findIndex(p => p.value === provider);
+              let nextIndex = currentIndex;
+              if (e.key === 'ArrowRight') nextIndex = (currentIndex + 1) % PROVIDERS.length;
+              if (e.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + PROVIDERS.length) % PROVIDERS.length;
+              onProviderChange(PROVIDERS[nextIndex].value);
+              
+              // Focus the next button after state update
+              setTimeout(() => {
+                const buttons = e.currentTarget.querySelectorAll('button');
+                buttons[nextIndex]?.focus();
+              }, 0);
+            }
+          }}
+          className="hidden md:flex items-center gap-1 bg-[var(--rf-void)] border border-[var(--rf-border)] px-1 py-1"
         >
           {PROVIDERS.map((p) => {
             const isActive = p.value === provider;
@@ -48,14 +71,16 @@ export function TopBar({
                 key={p.value}
                 role="radio"
                 aria-checked={isActive}
+                tabIndex={isActive ? 0 : -1}
+                aria-label={`Select ${p.label} provider`}
                 onClick={() => onProviderChange(p.value)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none ${
+                className={`px-3 py-1 text-[10px] font-mono uppercase tracking-widest transition-all flex items-center gap-1.5 cursor-pointer focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none ${
                   isActive
-                    ? 'bg-[var(--rf-void)] text-[var(--rf-mist)] border border-[var(--rf-border)] shadow-sm'
-                    : 'text-[var(--rf-mist)]/60 hover:text-[var(--rf-mist)] border border-transparent'
+                    ? 'bg-[var(--rf-surface)] text-[var(--rf-volt)] border border-[var(--rf-border)] shadow-sm'
+                    : 'text-[var(--rf-mist)]/40 hover:text-[var(--rf-mist)] hover:bg-[var(--rf-forest)] border border-transparent'
                 }`}
               >
-                {Icon && <Icon className="w-3.5 h-3.5" />}
+                {Icon && <Icon className="w-3 h-3" aria-hidden="true" />}
                 <span>{p.label}</span>
               </button>
             );
@@ -68,7 +93,7 @@ export function TopBar({
             aria-label="Select AI provider"
             value={provider}
             onChange={(e) => onProviderChange(e.target.value as Provider)}
-            className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[6px] text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]"
+            className="px-2.5 py-1.5 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm text-xs text-[var(--rf-mist)] cursor-pointer hover:bg-[var(--rf-surface)] transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]"
           >
             {PROVIDERS.map((p) => (
               <option key={p.value} value={p.value}>
@@ -83,7 +108,7 @@ export function TopBar({
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onShare}
-          className="rf-btn-ghost focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
+          className="rf-btn-ghost rounded-sm focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
           title="Share report"
           aria-label="Share report"
         >
@@ -92,7 +117,7 @@ export function TopBar({
 
         <button
           onClick={onSettingsClick}
-          className="rf-btn-ghost focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
+          className="rf-btn-ghost rounded-sm focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
           title="API Settings"
           aria-label="API Settings"
         >
@@ -101,7 +126,7 @@ export function TopBar({
 
         <button
           onClick={onHistoryClick}
-          className="rf-btn-ghost focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
+          className="rf-btn-ghost rounded-sm focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
           title="History"
           aria-label="Open history"
         >
@@ -112,13 +137,13 @@ export function TopBar({
           onClick={onAnalyze}
           disabled={isLoading}
           aria-label={isLoading ? 'Analyzing code' : 'Analyze code'}
-          className="rf-btn-volt flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white"
+          className="rf-btn-volt rounded-sm flex items-center gap-2 text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-white h-8"
         >
-          <span>{isLoading ? 'Analyzing' : 'Analyze Code'}</span>
+          <span className="font-bold">{isLoading ? 'Analyzing' : 'Analyze'}</span>
           {isLoading ? (
             <Zap size={14} className="animate-pulse" />
           ) : (
-            <span className="font-mono text-sm">&rarr;</span>
+            <Zap size={14} />
           )}
         </button>
       </div>

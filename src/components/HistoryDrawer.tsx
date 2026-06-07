@@ -1,10 +1,8 @@
-import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Download, Upload } from 'lucide-react';
-import type { HistoryEntry } from '../types/analysis';
-import { exportHistoryJSON, importHistoryJSON, LIMIT } from '../lib/history';
-import { PROVIDER_ICONS } from '../lib/constants';
+import { X, Clock, Trash2, Code2, Download, Upload, Shield } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import type { HistoryEntry } from '../types/analysis';
 
 interface HistoryDrawerProps {
   open: boolean;
@@ -16,55 +14,46 @@ interface HistoryDrawerProps {
 }
 
 /**
- * Formats a timestamp as a human-readable relative time string.
- *
- * @param ts - The timestamp in milliseconds
- * @returns A string like "just now", "5m ago", "2d ago", etc.
+ * Slide-out drawer for browsing past code analyses.
+ * Optimized for keyboard navigation and screen readers.
  */
-function timeAgo(ts: number): string {
-  const diff = Math.floor((Date.now() - ts) / 1000);
-  
-  if (diff < 30) return 'just now';
-  if (diff < 60) return `${diff}s ago`;
-  
-  const m = Math.floor(diff / 60);
-  if (m < 60) return `${m}m ago`;
-  
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  
-  const w = Math.floor(d / 7);
-  return `${w}w ago`;
-}
-
-/**
- * Slide-in drawer from the right showing analysis history.
- * Supports export/import of history entries as JSON backups.
- */
-export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImport }: HistoryDrawerProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export function HistoryDrawer({
+  open,
+  onClose,
+  entries,
+  onSelect,
+  onClear,
+  onImport,
+}: HistoryDrawerProps) {
   const focusTrapRef = useFocusTrap<HTMLDivElement>(open, onClose);
+
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `refract-history-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      const imported = importHistoryJSON(text);
-      if (imported) {
-        onImport(imported);
-      } else {
-        // Using console.error instead of alert() for better UX
-        console.error('Invalid backup file. Expected refract JSON backup with id, code, score, resultCache fields.');
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const data = JSON.parse(content);
+        if (Array.isArray(data)) {
+          onImport(data);
+        }
+      } catch (err) {
+        console.error('Failed to import history:', err);
       }
     };
     reader.readAsText(file);
-    e.target.value = '';
   };
 
   return (
@@ -76,9 +65,9 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150]"
+            aria-hidden="true"
           />
-
           <motion.div
             ref={focusTrapRef}
             role="dialog"
@@ -87,94 +76,91 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'tween', duration: 0.25 }}
-            className="fixed right-0 top-0 bottom-0 w-[320px] bg-[var(--rf-depth)] border-l border-[var(--rf-border)] z-50 flex flex-col shadow-2xl"
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed right-0 top-0 bottom-0 w-full max-w-sm bg-[var(--rf-depth)] border-l border-[var(--rf-border)] z-[160] flex flex-col shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--rf-border)]">
-              <span id="history-title" className="text-xs font-bold uppercase tracking-widest text-[var(--rf-volt)]">History</span>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[var(--rf-mist)]/50 mr-2" aria-label={`${entries.length} of ${LIMIT} entries used`}>
-                  {entries.length}/{LIMIT}
+            <div className="flex items-center justify-between p-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)]">
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-[var(--rf-volt)]" />
+                <h2 id="history-title" className="text-sm font-bold uppercase tracking-widest text-white">History</h2>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 font-mono">
+                  {entries.length}
                 </span>
-                <button 
-                  onClick={onClose} 
-                  aria-label="Close history" 
-                  className="p-1 hover:bg-[var(--rf-forest)] rounded transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none"
-                >
-                  <X size={16} className="text-[var(--rf-mist)]/50" />
-                </button>
               </div>
+              <button
+                onClick={onClose}
+                aria-label="Close history"
+                className="p-1.5 hover:bg-[var(--rf-forest)] rounded-sm transition-colors text-[var(--rf-mist)]/40 hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            {/* Backup controls */}
-            <div className="flex gap-2 px-4 py-2 border-b border-[var(--rf-border)]">
+            {/* Actions */}
+            <div className="p-3 border-b border-[var(--rf-border)] bg-[var(--rf-forest)]/20 flex gap-2">
               <button
-                onClick={() => exportHistoryJSON(entries)}
+                onClick={handleExport}
                 disabled={entries.length === 0}
-                aria-label="Export history as JSON"
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--rf-sky)] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] border border-[var(--rf-border)] rounded-[6px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-1 focus-visible:ring-[var(--rf-sky)] focus:outline-none"
+                className="flex-1 flex items-center justify-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--rf-forest)] border border-[var(--rf-border)] text-[var(--rf-mist)] hover:text-white hover:border-[var(--rf-volt)]/50 transition-all rounded-sm disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <Download size={12} />
-                Export JSON
+                <Download size={12} /> Export
               </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                aria-label="Import history from JSON file"
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--rf-mist)] bg-[var(--rf-forest)] hover:bg-[var(--rf-surface)] border border-[var(--rf-border)] rounded-[6px] transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-mist)] focus:outline-none"
-              >
-                <Upload size={12} />
-                Import JSON
-              </button>
-              <input ref={fileInputRef} type="file" accept=".json" aria-label="Select JSON backup file" className="hidden" onChange={handleImport} />
+              <label className="flex-1 flex items-center justify-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--rf-forest)] border border-[var(--rf-border)] text-[var(--rf-mist)] hover:text-white hover:border-[var(--rf-volt)]/50 transition-all rounded-sm cursor-pointer">
+                <Upload size={12} /> Import
+                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+              </label>
             </div>
 
-            {/* Entries */}
+            {/* Scrollable list */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2 diff-scrollbar">
               {entries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 gap-2" role="status">
-                  <span className="text-2xl" aria-hidden="true">🕳</span>
-                  <p className="text-xs text-[var(--rf-mist)]/50 text-center">No history yet</p>
+                <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
+                  <div className="p-4 bg-[var(--rf-forest)]/30 rounded-full border border-[var(--rf-border)] border-dashed opacity-20">
+                    <Clock size={32} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-[var(--rf-mist)]/60 uppercase tracking-widest">Buffer Empty</h3>
+                    <p className="text-[10px] text-[var(--rf-mist)]/30 mt-1">Your past analyses will appear here.</p>
+                  </div>
                 </div>
               ) : (
-                entries.map((entry) => {
-                  const scoreColor =
-                    entry.score >= 75
-                      ? 'var(--rf-volt)'
-                      : entry.score >= 50
-                        ? 'var(--rf-warn)'
-                        : 'var(--rf-ember)';
-                        
-                  const IconComponent = PROVIDER_ICONS[entry.provider];
-
-                  return (
-                    <button
-                      key={entry.id}
-                      onClick={() => { onSelect(entry); onClose(); }}
-                      className="w-full text-left p-3 bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-[8px] hover:border-[var(--rf-volt)]/30 hover:bg-[var(--rf-surface)] transition-all group focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] focus:outline-none"
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span
-                          className="w-8 h-5 flex items-center justify-center rounded text-[10px] font-bold rf-mono"
-                          style={{ backgroundColor: scoreColor, color: 'var(--rf-void)' }}
-                        >
-                          {entry.score}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-wider text-[var(--rf-mist)]/50">{entry.lang}</span>
-                        <span className="ml-auto flex items-center justify-center text-[var(--rf-mist)]">
-                          {IconComponent ? (
-                            <IconComponent className="w-3 h-3" />
-                          ) : (
-                            <span className="text-[9px] font-mono opacity-40">{entry.provider}</span>
-                          )}
-                        </span>
-                        <span className="text-[10px] text-[var(--rf-mist)]/50">{timeAgo(entry.ts)}</span>
+                entries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => {
+                      onSelect(entry);
+                      onClose();
+                    }}
+                    className="w-full text-left p-3 rounded-sm border border-[var(--rf-border)] bg-[var(--rf-forest)]/20 hover:bg-[var(--rf-forest)]/40 hover:border-[var(--rf-volt)]/30 transition-all group focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)]"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Code2 size={12} className="text-[var(--rf-volt)]" />
+                        <span className="text-[10px] font-mono text-white/80 uppercase tracking-tighter">{entry.lang}</span>
                       </div>
-                      <p className="text-[11px] text-[var(--rf-mist)] line-clamp-1 mb-1 font-bold">{entry.summary}</p>
-                      <p className="text-[10px] text-[var(--rf-mist)]/40 font-mono line-clamp-1">{entry.code}</p>
-                    </button>
-                  );
-                })
+                      <span className="text-[9px] font-mono text-[var(--rf-mist)]/30">
+                        {formatDistanceToNow(entry.ts, { addSuffix: true })}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-[11px] font-bold text-white mb-1 line-clamp-1 group-hover:text-[var(--rf-volt)] transition-colors">
+                      {entry.summary}
+                    </h3>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <Shield size={10} className={entry.score > 80 ? 'text-[var(--rf-volt)]' : 'text-[var(--rf-ember)]'} />
+                        <span className="text-[10px] font-mono font-bold" style={{ color: entry.score > 80 ? 'var(--rf-volt)' : 'var(--rf-ember)' }}>
+                          {entry.score}%
+                        </span>
+                      </div>
+                      <div className="text-[9px] font-mono text-[var(--rf-mist)]/40 truncate flex-1">
+                        {entry.provider} · {entry.code.length} chars
+                      </div>
+                    </div>
+                  </button>
+                ))
               )}
             </div>
 
@@ -184,7 +170,7 @@ export function HistoryDrawer({ open, onClose, entries, onSelect, onClear, onImp
                 <button
                   onClick={onClear}
                   aria-label="Clear all history"
-                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[var(--rf-ember)] hover:bg-[var(--rf-forest)] rounded-[6px] transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-ember)] focus:outline-none"
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[var(--rf-ember)] hover:bg-[var(--rf-forest)] rounded-sm transition-colors focus-visible:ring-1 focus-visible:ring-[var(--rf-ember)] focus:outline-none"
                 >
                   <Trash2 size={13} />
                   Clear all

@@ -54,6 +54,14 @@ Ce document définit les rôles et protocoles pour l'essaim d'agents d'audit de 
   - Ensure focus trap integrity in `HistoryDrawer`.
 - **Standard:** 100% keyboard navigable and screen-reader friendly.
 
+### 6. `design-specialist`
+**Focus:** Brutalist-Cyber aesthetics, Tailwind CSS laws, and UI/UX polish.
+- **Tasks:**
+  - Audit Tailwind class redundancy and theme variable consistency.
+  - Apply Design Laws (Hick, Fitts, Proximity) to the main dashboard.
+  - Optimize interactive states (:hover, :focus) and high-fidelity animations.
+- **Standard:** Brutalist but Accessible. No "magic values", 100% theme-driven.
+
 ---
 
 ## 🛠️ Combined Tooling Commands (PowerShell)

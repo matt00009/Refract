@@ -1,11 +1,13 @@
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { ChevronDown, AlertCircle, AlertTriangle, Lightbulb, Copy, Check, XCircle, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { highlightCode } from '../lib/highlight';
 import type { Issue } from '../types/analysis';
 
 interface IssueCardProps {
   issue: Issue;
   index: number;
+  language: string;
 }
 
 /** Severity-specific display configuration (color, icon, label). */
@@ -16,60 +18,65 @@ const SEVERITY_CONFIG = {
 } as const;
 
 /**
- * A lightweight synchronous regex-based syntax highlighter for issue code snippets.
- * Colorizes const, let, function, try, catch, and strings to match Refract's Void Monospace aesthetic.
- */
-function highlightRegex(code: string): string {
-  let escaped = code
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  const placeholders: string[] = [];
-
-  // 1. Comments
-  escaped = escaped.replace(/(\/\/.*|#.*)/g, (match) => {
-    const placeholder = `___TOKEN_COMMENT_${placeholders.length}___`;
-    placeholders.push(`<span style="color: var(--rf-border); font-style: italic;">${match}</span>`);
-    return placeholder;
-  });
-
-  // 2. Strings
-  escaped = escaped.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, (match) => {
-    const placeholder = `___TOKEN_STRING_${placeholders.length}___`;
-    placeholders.push(`<span style="color: var(--rf-sky);">${match}</span>`);
-    return placeholder;
-  });
-
-  // 3. Keywords
-  const keywords = /\b(const|let|var|function|try|catch|class|import|export|from|return|if|else|for|while|def|fn|struct|impl|mut|pub|func|go|chan|select|interface|type|public|private|protected|async|await)\b/g;
-  escaped = escaped.replace(keywords, `<span style="color: var(--rf-volt); font-weight: 500;">$1</span>`);
-
-  // 4. Constants / Types
-  const constants = /\b(true|false|null|undefined|nil|void|any|unknown|string|number|boolean)\b/g;
-  escaped = escaped.replace(constants, `<span style="color: var(--rf-warn);">$1</span>`);
-
-  // Restore placeholders
-  for (let i = placeholders.length - 1; i >= 0; i--) {
-    escaped = escaped.replace(new RegExp(`___TOKEN_(COMMENT|STRING)_${i}___`, 'g'), placeholders[i]);
-  }
-
-  return escaped;
-}
-
-/**
  * Expandable card displaying a single code review issue.
  * Shows a dual-panel layout: "VULNERABLE CODE" vs "SECURE FIX" side-by-side,
  * plus description and resolution methodology bullets.
  * Matches the Stitch "Advanced Code Repair Dashboard" design.
+ * 
+ * Optimized with Shiki lazy-loading and conditional highlighting on expansion.
  */
-export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProps) {
+export const IssueCard = memo(function IssueCard({ issue, index, language }: IssueCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [highlightedVulnerable, setHighlightedVulnerable] = useState<string | null>(null);
+  const [highlightedFix, setHighlightedFix] = useState<string | null>(null);
 
   const config = SEVERITY_CONFIG[issue.severity] || SEVERITY_CONFIG.suggestion;
   const Icon = config.icon;
   const contentId = `issue-content-${index}`;
+
+  const rawVulnerable = issue.vulnerable_code || null;
+  const rawFix = issue.fix_code || issue.fix || null;
+  const hasDualPanel = !!(rawVulnerable || rawFix);
+
+  /**
+   * Ensures a string is displayed as code.
+   * If the AI returned plain prose (no code-like chars), wraps each line as a comment.
+   */
+  const ensureCode = (text: string): string => {
+    const CODE_SIGNALS = /[{};()=><[\]"'`]|\/\/|#|import|const|let|var|def |return|function|class|=>|->|\.\w+\(/;
+    if (CODE_SIGNALS.test(text)) return text;
+    // Looks like prose — wrap lines as comments
+    return text
+      .split('\n')
+      .map((line) => (line.trim() ? `// ${line.trim()}` : ''))
+      .join('\n');
+  };
+
+  // Perform Shiki highlighting ONLY when expanded to save resources
+  useEffect(() => {
+    if (expanded && hasDualPanel && (!highlightedVulnerable || !highlightedFix)) {
+      const highlight = async () => {
+        if (rawVulnerable) {
+          try {
+            const h = await highlightCode(ensureCode(rawVulnerable), language);
+            setHighlightedVulnerable(h);
+          } catch (e) {
+            console.error('Shiki highlight error (vulnerable):', e);
+          }
+        }
+        if (rawFix) {
+          try {
+            const h = await highlightCode(ensureCode(rawFix), language);
+            setHighlightedFix(h);
+          } catch (e) {
+            console.error('Shiki highlight error (fix):', e);
+          }
+        }
+      };
+      highlight();
+    }
+  }, [expanded, hasDualPanel, rawVulnerable, rawFix, language, highlightedVulnerable, highlightedFix]);
 
   const handleCopyFix = async () => {
     const rawFixCode = issue.fix_code || issue.fix;
@@ -102,57 +109,43 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
 
   const displayBullets = explanationLines.length > 0 ? explanationLines : resolutionBullets;
 
-  /**
-   * Ensures a string is displayed as code.
-   * If the AI returned plain prose (no code-like chars), wraps each line as a comment.
-   */
-  const ensureCode = (text: string): string => {
-    const CODE_SIGNALS = /[{};()=><[\]"'`]|\/\/|#|import|const|let|var|def |return|function|class|=>|->|\.\w+\(/;
-    if (CODE_SIGNALS.test(text)) return text;
-    // Looks like prose — wrap lines as comments
-    return text
-      .split('\n')
-      .map((line) => (line.trim() ? `// ${line.trim()}` : ''))
-      .join('\n');
-  };
-
-  const rawVulnerable = issue.vulnerable_code || null;
-  const rawFix = issue.fix_code || issue.fix || null;
-  const hasDualPanel = !!(rawVulnerable || rawFix);
-
-  const displayVulnerable = rawVulnerable ? highlightRegex(ensureCode(rawVulnerable)) : null;
-  const displayFix = rawFix ? highlightRegex(ensureCode(rawFix)) : null;
-
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-lg overflow-hidden group focus-within:ring-1 focus-within:ring-[var(--rf-volt)]/30"
+      style={{ willChange: 'transform, opacity' }}
+      className="bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm overflow-hidden group focus-within:ring-1 focus-within:ring-[var(--rf-volt)]/30 shadow-lg"
     >
       {/* Header — always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-controls={contentId}
-        className="w-full flex items-center justify-between p-4 text-left cursor-pointer hover:bg-[#1A2621] transition-colors focus:outline-none"
+        className="w-full flex items-center justify-between p-4 text-left cursor-pointer hover:bg-[var(--rf-surface)]/50 transition-all focus:outline-none relative"
       >
-        <motion.div layout="position" className="flex items-center gap-3">
-          <Icon size={18} style={{ color: config.color, flexShrink: 0 }} />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-[var(--rf-volt)] transition-colors" style={{ backgroundColor: expanded ? config.color : 'transparent' }} />
+        <motion.div layout="position" layoutId={`issue-header-${index}`} className="flex items-center gap-3">
+          <Icon size={18} style={{ color: config.color, flexShrink: 0 }} aria-hidden="true" />
           <div>
-            <div className="font-bold text-sm text-[var(--rf-mist)]">{issue.title}</div>
-            <div className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/40 mt-0.5">
+            <div id={`issue-title-${index}`} className="font-bold text-sm text-[var(--rf-mist)] group-hover:text-white transition-colors">{issue.title}</div>
+            <div className="rf-micro-caps text-[var(--rf-mist)]/40 mt-0.5">
               {config.label}{issue.line ? ` · Line ${issue.line}` : ''}
             </div>
           </div>
         </motion.div>
 
-        <motion.div layout>
+        <motion.div layout layoutId={`issue-chevron-${index}`}>
           <ChevronDown
             size={16}
-            className="flex-shrink-0 text-[var(--rf-mist)]/40 transition-transform duration-200"
-            style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            aria-hidden="true"
+            className="flex-shrink-0 text-[var(--rf-mist)]/40 transition-transform duration-300"
+            style={{ 
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              color: expanded ? 'var(--rf-volt)' : 'inherit',
+              willChange: 'transform'
+            }}
           />
         </motion.div>
       </button>
@@ -162,49 +155,53 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
         {expanded && (
           <motion.div
             id={contentId}
+            role="region"
+            aria-labelledby={`issue-title-${index}`}
             layout
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden"
+            style={{ willChange: 'height, opacity' }}
+            className="overflow-hidden bg-[var(--rf-void)]/30 backdrop-blur-md"
           >
             <div className="px-4 pb-4 space-y-4 border-t border-[var(--rf-border)]">
               {/* Description */}
               <motion.p 
                 layout="position"
-                className="text-sm text-[var(--rf-mist)] leading-relaxed pt-3"
+                className="text-sm text-[var(--rf-mist)]/90 leading-relaxed pt-3 border-l border-[var(--rf-border)] pl-3 ml-1"
               >
                 {issue.description}
               </motion.p>
 
               {/* Dual-panel: Vulnerable Code / Secure Fix */}
               {hasDualPanel && (
-                <motion.div 
-                  layout
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-                >
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Vulnerable Code panel */}
-                  <motion.div layout className="rounded-[6px] bg-[rgba(255,144,112,0.02)] border border-[rgba(255,144,112,0.15)] overflow-hidden">
-                    <div className="px-3 py-1.5 border-b border-[rgba(255,144,112,0.15)] flex items-center gap-2">
-                      <XCircle size={12} className="text-[var(--rf-ember)] shrink-0" />
-                      <span className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-ember)] font-semibold">
+                  <div className="rounded-sm bg-[var(--rf-void)] border border-[rgba(255,144,112,0.15)] overflow-hidden">
+                    <div className="px-3 py-1.5 border-b border-[rgba(255,144,112,0.15)] bg-[var(--rf-ember)]/5 flex items-center gap-2">
+                      <XCircle size={12} className="text-[var(--rf-ember)] shrink-0" aria-hidden="true" />
+                      <span className="rf-micro-caps text-[var(--rf-ember)] font-bold">
                         CODE VULNÉRABLE
                       </span>
                     </div>
-                    <div className="p-3 overflow-x-auto diff-scrollbar">
-                      <pre className="text-[11px] font-mono leading-[1.6] text-[var(--rf-mist)]/80 whitespace-pre">
-                        <code dangerouslySetInnerHTML={{ __html: displayVulnerable ?? '// N/A' }} />
-                      </pre>
+                    <div className="p-3 overflow-x-auto diff-scrollbar shiki-minimal min-h-[60px]">
+                      {highlightedVulnerable ? (
+                        <div dangerouslySetInnerHTML={{ __html: highlightedVulnerable }} />
+                      ) : (
+                        <pre className="text-[11px] font-mono leading-[1.6] text-[var(--rf-mist)]/80 whitespace-pre">
+                          <code>{rawVulnerable ? ensureCode(rawVulnerable) : '// N/A'}</code>
+                        </pre>
+                      )}
                     </div>
-                  </motion.div>
+                  </div>
 
                   {/* Secure Fix panel */}
-                  <motion.div layout className="rounded-[6px] bg-[rgba(168,255,62,0.01)] border border-[rgba(168,255,62,0.20)] overflow-hidden group/fix relative">
-                    <div className="px-3 py-1.5 border-b border-[rgba(168,255,62,0.20)] flex items-center justify-between">
+                  <div className="rounded-sm bg-[var(--rf-void)] border border-[rgba(168,255,62,0.20)] overflow-hidden group/fix relative">
+                    <div className="px-3 py-1.5 border-b border-[rgba(168,255,62,0.20)] bg-[var(--rf-volt)]/5 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <ShieldCheck size={12} className="text-[var(--rf-volt)] shrink-0" />
-                        <span className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-volt)] font-semibold">
+                        <ShieldCheck size={12} className="text-[var(--rf-volt)] shrink-0" aria-hidden="true" />
+                        <span className="rf-micro-caps text-[var(--rf-volt)] font-bold">
                           CORRECTIF SÉCURISÉ
                         </span>
                       </div>
@@ -212,40 +209,44 @@ export const IssueCard = memo(function IssueCard({ issue, index }: IssueCardProp
                         <button
                           onClick={handleCopyFix}
                           aria-label="Copy fix to clipboard"
-                          className="flex items-center gap-1.5 text-[9px] font-mono tracking-wider uppercase bg-[rgba(168,255,62,0.1)] text-[var(--rf-volt)] hover:bg-[var(--rf-volt)] hover:text-[var(--rf-void)] px-2.5 py-1 rounded-full border border-[rgba(168,255,62,0.3)] transition-all cursor-pointer shadow-sm hover:scale-105 opacity-100 sm:opacity-0 group-hover/fix:opacity-100 focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]"
+                          className="flex items-center gap-1.5 text-[9px] font-mono tracking-wider uppercase bg-[var(--rf-volt)]/10 text-[var(--rf-volt)] hover:bg-[var(--rf-volt)] hover:text-[var(--rf-void)] px-2.5 py-1 border border-[rgba(168,255,62,0.3)] transition-all cursor-pointer shadow-sm hover:scale-105 opacity-100 sm:opacity-0 group-hover/fix:opacity-100 focus:outline-none focus:ring-1 focus:ring-[var(--rf-volt)]"
                         >
-                          {copied ? <Check size={10} className="stroke-[3]" /> : <Copy size={10} />}
+                          {copied ? <Check size={10} className="stroke-[3]" aria-hidden="true" /> : <Copy size={10} aria-hidden="true" />}
                           <span>{copied ? 'Copié' : 'Copier'}</span>
                         </button>
                       )}
                     </div>
-                    <div className="p-3 overflow-x-auto diff-scrollbar">
-                      <pre className="text-[11px] font-mono leading-[1.6] text-[var(--rf-volt)]/80 whitespace-pre">
-                        <code dangerouslySetInnerHTML={{ __html: displayFix ?? '// Aucun correctif disponible' }} />
-                      </pre>
+                    <div className="p-3 overflow-x-auto diff-scrollbar shiki-minimal min-h-[60px]">
+                      {highlightedFix ? (
+                        <div dangerouslySetInnerHTML={{ __html: highlightedFix }} />
+                      ) : (
+                        <pre className="text-[11px] font-mono leading-[1.6] text-[var(--rf-volt)]/80 whitespace-pre">
+                          <code>{rawFix ? ensureCode(rawFix) : '// Aucun correctif disponible'}</code>
+                        </pre>
+                      )}
                     </div>
-                  </motion.div>
-                </motion.div>
+                  </div>
+                </div>
               )}
 
               {/* Resolution methodology */}
               {displayBullets.length > 0 && (
-                <motion.div 
-                  layout
-                  className="mt-4 p-4 rounded-[6px] border border-[var(--rf-border)] bg-[rgba(8,11,15,0.3)] font-mono text-[11px] leading-relaxed"
-                >
-                  <div className="text-[10px] tracking-widest uppercase text-[var(--rf-volt)] mb-3 font-semibold rf-micro-caps">
+                <div className="mt-4 p-4 rounded-sm border border-[var(--rf-border)] bg-[rgba(8,11,15,0.4)] relative overflow-hidden">
+                  <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none select-none">
+                    <Icon size={120} />
+                  </div>
+                  <div className="rf-micro-caps text-[var(--rf-volt)] mb-3 font-bold relative z-10">
                     MÉTHODOLOGIE DE RÉSOLUTION :
                   </div>
-                  <ul className="space-y-2">
+                  <ul className="space-y-2 relative z-10">
                     {displayBullets.map((bullet, i) => (
-                      <li key={i} className="flex gap-2 text-[var(--rf-mist)]/80">
-                        <span className="text-[var(--rf-volt)] select-none">•</span>
+                      <li key={i} className="flex gap-2 text-[var(--rf-mist)]/70 text-xs">
+                        <span className="text-[var(--rf-volt)] select-none font-bold">›</span>
                         <span>{bullet.replace(/^[-\d.*•›]+\s*/, '')}</span>
                       </li>
                     ))}
                   </ul>
-                </motion.div>
+                </div>
               )}
             </div>
           </motion.div>
