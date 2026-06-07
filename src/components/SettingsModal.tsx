@@ -276,8 +276,26 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                               className="space-y-3"
                             >
                             <form onSubmit={handleAuth} className="space-y-3">
-                              <input type="email" aria-label="Email address" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-sky)]/50" required />
-                              <input type="password" aria-label="Password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-sky)]/50" required />
+                              <input
+                                type="email"
+                                autoComplete="email"
+                                aria-label="Adresse email"
+                                placeholder="Email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-sky)]/50"
+                                required
+                              />
+                              <input
+                                type="password"
+                                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                                aria-label="Mot de passe"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm px-3 py-1.5 text-xs text-white outline-none focus:border-[var(--rf-sky)]/50"
+                                required
+                              />
                               {authError && <div className="text-[9px] text-[var(--rf-ember)] font-mono">{authError}</div>}
                               <button type="submit" disabled={authLoading} className="w-full py-2 bg-[var(--rf-sky)] text-[var(--rf-void)] text-[10px] font-mono font-bold rounded-sm hover:opacity-90 disabled:opacity-30">{authLoading ? 'PROCESSING...' : (authMode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT')}</button>
                             </form>
@@ -290,8 +308,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="space-y-6">
                       <div className="flex items-center gap-2 text-[var(--rf-mist)]/50 border-b border-[var(--rf-border)] pb-1.5"><Lock size={12} aria-hidden="true" /><h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">Zero-Knowledge Vault</h3></div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-mono text-[var(--rf-mist)]/60">Vault Password (Required to sync keys)</label>
-                        <input type="password" placeholder="Master Password" value={vaultPassword} onChange={(e) => setVaultPassword(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm px-3 py-1.5 text-xs font-mono text-white outline-none focus:border-[var(--rf-volt)]/50"/>
+                        <label htmlFor="vault-password" className="text-[10px] font-mono text-[var(--rf-mist)]/60">Vault Password (Required to sync keys)</label>
+                        <input id="vault-password" type="password" autoComplete="current-password" placeholder="Master Password" value={vaultPassword} onChange={(e) => setVaultPassword(e.target.value)} className="w-full bg-[var(--rf-forest)] border border-[var(--rf-border)] rounded-sm px-3 py-1.5 text-xs font-mono text-white outline-none focus:border-[var(--rf-volt)]/50"/>
                       </div>
 
                       <div className="space-y-4">

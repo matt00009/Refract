@@ -107,13 +107,13 @@ export const Results = memo(function Results({ result, loading, onReset, languag
   };
 
   return (
-    <div className={`flex-1 p-6 overflow-y-auto space-y-6 scroll-smooth rf-net-grid bg-opacity-5 ${loading ? 'rf-scan' : ''}`}>
+    <div className={`flex-1 p-6 overflow-y-auto space-y-6 scroll-smooth bg-opacity-5 ${loading ? 'rf-scan' : ''}`}>
       {/* Top Header Actions */}
       <div className="flex items-center justify-between pb-1 shrink-0 relative z-10">
         <div className="flex flex-col">
-          <span className="rf-micro-caps text-[var(--rf-mist)]/40 font-bold">Analysis Summary</span>
+          <span className="rf-micro-caps text-[var(--rf-mist)]/50 font-bold">Analysis Summary</span>
           {result.latency && (
-            <span className="text-[8px] font-mono text-[var(--rf-mist)]/20 uppercase tracking-tight">
+            <span className="text-[8px] font-mono text-[var(--rf-mist)]/40 uppercase tracking-tight">
               LATENCY: {(result.latency / 1000).toFixed(2)}s
             </span>
           )}
@@ -143,7 +143,7 @@ export const Results = memo(function Results({ result, loading, onReset, languag
           {/* Complexity */}
           <div className="border border-[var(--rf-border)] p-3 text-left rounded-sm bg-[var(--rf-void)]/40 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <span className="rf-micro-caps text-[var(--rf-mist)]/30">Complexity</span>
+              <span className="rf-micro-caps text-[var(--rf-mist)]/50">Complexity</span>
               <span
                 className="bg-[var(--rf-void)] px-1.5 py-0.5 border border-hairline text-[9px] font-mono font-bold uppercase tracking-[0.12em]"
                 style={{ color: getComplexityColor(result.complexity) }}
@@ -156,7 +156,7 @@ export const Results = memo(function Results({ result, loading, onReset, languag
           {/* Issues count */}
           <div className="border border-[var(--rf-border)] p-3 text-left rounded-sm bg-[var(--rf-void)]/40 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <span className="rf-micro-caps text-[var(--rf-mist)]/30">Issues</span>
+              <span className="rf-micro-caps text-[var(--rf-mist)]/50">Issues</span>
               <span className="text-[var(--rf-ember)] font-bold font-mono text-sm">{result.issues.length}</span>
             </div>
           </div>
@@ -165,7 +165,7 @@ export const Results = memo(function Results({ result, loading, onReset, languag
         {/* Clear Result trigger */}
         <button
           onClick={onReset}
-          className="rf-micro-caps text-[var(--rf-mist)]/40 hover:text-[var(--rf-ember)] transition-colors pt-2 font-bold cursor-pointer underline decoration-[var(--rf-border)] underline-offset-4 hover:decoration-[var(--rf-ember)]"
+          className="rf-micro-caps text-[var(--rf-mist)]/50 hover:text-[var(--rf-ember)] transition-colors pt-2 font-bold cursor-pointer underline decoration-[var(--rf-border)] underline-offset-4 hover:decoration-[var(--rf-ember)]"
         >
           Clear Result
         </button>
@@ -177,9 +177,9 @@ export const Results = memo(function Results({ result, loading, onReset, languag
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="space-y-3 pt-2 will-change-[opacity]"
+          className="space-y-3 pt-2"
         >
-          <h3 className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/40 font-semibold mb-3">Detected Issues</h3>
+          <h3 className="text-[10px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/50 font-semibold mb-3">Detected Issues</h3>
           {result.issues.map((issue, i) => (
             <IssueCard 
               key={`${issue.severity}-${issue.title}-${i}`} 
@@ -197,7 +197,7 @@ export const Results = memo(function Results({ result, loading, onReset, languag
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="rf-card p-4 space-y-2 will-change-[opacity]"
+          className="rf-card p-4 space-y-2"
         >
           <h3 className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-volt)] mb-3 font-bold">Key Strengths</h3>
           <ul className="space-y-1.5">
@@ -217,7 +217,7 @@ export const Results = memo(function Results({ result, loading, onReset, languag
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
-          className="rf-card p-4 space-y-2 border-[var(--rf-sky)]/30 bg-[var(--rf-sky)]/5 will-change-[opacity]"
+          className="rf-card p-4 space-y-2 border-[var(--rf-sky)]/30 bg-[var(--rf-sky)]/5"
         >
           <h3 className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-sky)] mb-3 font-bold">Architectural Insights</h3>
           <ul className="space-y-1.5">

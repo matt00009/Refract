@@ -14,6 +14,16 @@
     --rf-ember:   #FF9070;
     --rf-warn:    #FFD166;
     --rf-mist:    #E8F0E0;
+
+    /* Alpha tokens */
+    --rf-volt-10:  rgba(168, 255,  62, 0.10);
+    --rf-volt-20:  rgba(168, 255,  62, 0.20);
+    --rf-volt-30:  rgba(168, 255,  62, 0.30);
+    --rf-volt-40:  rgba(168, 255,  62, 0.40);
+    --rf-ember-15: rgba(255, 144, 112, 0.15);
+    --rf-ember-20: rgba(255, 144, 112, 0.20);
+    --rf-sky-30:   rgba(121, 192, 255, 0.30);
+    --rf-void-40:  rgba(  8,  11,  15, 0.40);
   }
 
   *, *::before, *::after {
@@ -44,6 +54,36 @@
   *:hover {
     scrollbar-color: var(--rf-volt) var(--rf-void);
   }
+
+  /* ✅ WCAG 2.3.1 - Respect user choice for reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    .rf-crt-effect::before,
+    .rf-ember-glitch,
+    .rf-scan::after,
+    .animate-spin {
+      animation: none !important;
+    }
+
+    .rf-volt-glow {
+      animation: none !important;
+      filter: drop-shadow(0 0 6px var(--rf-volt));
+    }
+
+    .rf-dot-loader span {
+      animation: none !important;
+      opacity: 0.7;
+      transform: scale(0.8);
+    }
+  }
 }
 
 @layer components {
@@ -55,7 +95,7 @@
 
   /** Micro-caps — signature typographique Refract */
   .rf-micro-caps {
-    font-family: 'Courier Prime', monospace;
+    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.16em;
@@ -63,13 +103,13 @@
   }
 
   .rf-code-sm {
-    font-family: 'Courier Prime', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
     line-height: 20px;
   }
 
   .rf-code-xs {
-    font-family: 'Courier Prime', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     line-height: 18px;
   }
@@ -77,21 +117,21 @@
   /* ── Cards & Surfaces ───────────────────────────── */
   .rf-card {
     border: 0.5px solid var(--rf-border);
-    border-radius: 10px;
+    border-radius: 2px;
     background-color: var(--rf-surface);
     box-shadow: none;
   }
 
   .rf-card-forest {
     border: 0.5px solid var(--rf-border);
-    border-radius: 8px;
+    border-radius: 2px;
     background-color: var(--rf-forest);
   }
 
   /* ── Badges ─────────────────────────────────────── */
   .rf-badge {
     border: 0.5px solid var(--rf-border);
-    border-radius: 6px;
+    border-radius: 2px;
     background-color: var(--rf-forest);
     @apply px-2.5 py-1 text-xs font-semibold tracking-wide uppercase;
   }
@@ -100,20 +140,22 @@
   .rf-btn-volt {
     background-color: var(--rf-volt);
     color: var(--rf-void);
-    @apply font-bold px-4 py-1.5 rounded-[6px] hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer;
+    @apply font-bold px-4 py-1.5 rounded-sm hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer;
     border: none;
   }
 
   .rf-btn-ghost {
-    @apply w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer;
+    @apply w-8 h-8 flex items-center justify-center transition-all cursor-pointer;
+    padding: 6px;
     border: 0.5px solid var(--rf-border);
     background-color: var(--rf-forest);
-    color: rgba(232, 240, 224, 0.6); /* --rf-mist at 60% */
+    color: rgba(232, 240, 224, 0.6);
+    border-radius: 2px;
   }
 
   .rf-btn-ghost:hover {
     color: #ffffff;
-    border-color: rgba(168, 255, 62, 0.4); /* --rf-volt at 40% */
+    border-color: var(--rf-volt-40);
   }
 
   /* ── Border utilities ───────────────────────────── */
@@ -141,17 +183,36 @@
   }
 
   /* ── CRT Flicker Effect ────────────────────────── */
-  @keyframes crt-flicker {
-    0% { opacity: 0.99; }
-    5% { opacity: 0.95; }
-    10% { opacity: 0.99; }
-    15% { opacity: 0.97; }
-    20% { opacity: 0.99; }
-    100% { opacity: 1; }
+  /* Optimized: Static scanlines + subtle opacity flicker on fixed layer */
+  .rf-crt-effect {
+    position: relative;
+    isolation: isolate;
   }
 
-  .rf-crt-effect {
-    animation: crt-flicker 0.15s infinite;
+  @media (prefers-reduced-motion: no-preference) {
+    .rf-crt-effect::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.03) 2px,
+        rgba(0, 0, 0, 0.03) 4px
+      );
+      animation: crt-flicker 8s ease-in-out infinite;
+      will-change: opacity;
+    }
+  }
+
+  @keyframes crt-flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.98; }
+    97% { opacity: 1; }
+    98% { opacity: 0.99; }
   }
 
   /* ── Dot Matrix Loader (native — no external dep) ── */
@@ -176,9 +237,10 @@
   .rf-dot-loader span:nth-child(5) { animation-delay: 0.8s; }
 
   /* ── Scan-line effect (loading overlay) ─────────── */
+  /* Optimized: uses transform instead of top */
   @keyframes scan-line {
-    0% { top: -2px; }
-    100% { top: 100%; }
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
   }
 
   .rf-scan {
@@ -195,12 +257,14 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      var(--rf-volt) 50%,
+      var(--rf-volt) 20%,
+      var(--rf-volt) 80%,
       transparent 100%
     );
     animation: scan-line 3s linear infinite;
-    opacity: 0.25;
+    opacity: 0.15;
     pointer-events: none;
+    transform: translateY(-100%);
   }
 
   /* ── Volt Glow (score ≥ 90) ─────────────────────── */
@@ -225,10 +289,16 @@
   }
 
   .rf-ember-glitch {
-    animation: ember-glitch 0.2s ease-in-out infinite;
+    animation: ember-glitch 0.3s ease-in-out 3;
+    will-change: transform;
   }
 
   /* ── Slide-up entry ─────────────────────────────── */
+  @keyframes slide-up {
+    0%   { transform: translateY(8px); opacity: 0; }
+    100% { transform: translateY(0);   opacity: 1; }
+  }
+
   .rf-slide-up {
     animation: slide-up 0.25s ease-out forwards;
   }
@@ -236,16 +306,16 @@
   /* ── Vulnerable code panel ──────────────────────── */
   .rf-panel-vulnerable {
     background-color: rgba(255, 144, 112, 0.02);
-    border: 0.5px solid rgba(255, 144, 112, 0.15);
-    border-radius: 6px;
+    border: 0.5px solid var(--rf-ember-15);
+    border-radius: 2px;
     overflow: hidden;
   }
 
   .rf-panel-vulnerable-header {
     padding: 6px 12px;
-    border-bottom: 0.5px solid rgba(255, 144, 112, 0.15);
+    border-bottom: 0.5px solid var(--rf-ember-15);
     color: var(--rf-ember);
-    font-family: 'Courier Prime', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.16em;
@@ -255,16 +325,16 @@
   /* ── Secure fix panel ───────────────────────────── */
   .rf-panel-fix {
     background-color: rgba(168, 255, 62, 0.01);
-    border: 0.5px solid rgba(168, 255, 62, 0.20);
-    border-radius: 6px;
+    border: 0.5px solid var(--rf-volt-20);
+    border-radius: 2px;
     overflow: hidden;
   }
 
   .rf-panel-fix-header {
     padding: 6px 12px;
-    border-bottom: 0.5px solid rgba(168, 255, 62, 0.20);
+    border-bottom: 0.5px solid var(--rf-volt-20);
     color: var(--rf-volt);
-    font-family: 'Courier Prime', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.16em;

@@ -26,11 +26,11 @@ export const CODE_LANGUAGES = LANGUAGES.filter((l): l is Exclude<typeof l, 'auto
  */
 export const PROVIDERS: { value: Provider; label: string; icon: React.FC<React.SVGProps<SVGSVGElement>>; model: string }[] = [
   { value: 'auto', label: 'Intelligent', icon: SparklesIcon, model: '' },
-  { value: 'anthropic', label: 'Claude 3.7', icon: AnthropicIcon, model: 'claude-3-7-sonnet-latest' },
-  { value: 'gemini', label: 'Gemini 2.5', icon: GeminiIcon, model: 'gemini-2.5-pro-latest' },
-  { value: 'mistral', label: 'Mistral L3', icon: MistralIcon, model: 'mistral-large-latest' },
-  { value: 'groq', label: 'Groq Llama 3.3', icon: GroqIcon, model: 'llama-3.3-70b-versatile' },
-  { value: 'deepseek', label: 'DeepSeek V4', icon: DeepSeekIcon, model: 'deepseek-v4-pro' },
+  { value: 'anthropic', label: 'Claude 3.5', icon: AnthropicIcon, model: 'claude-3-5-sonnet-20241022' },
+  { value: 'gemini', label: 'Gemini 2.0 Flash', icon: GeminiIcon, model: 'gemini-2.0-flash' },
+  { value: 'mistral', label: 'Codestral', icon: MistralIcon, model: 'codestral-latest' },
+  { value: 'groq', label: 'Llama 3.3', icon: GroqIcon, model: 'llama-3.3-70b-versatile' },
+  { value: 'deepseek', label: 'DeepSeek Chat', icon: DeepSeekIcon, model: 'deepseek-chat' },
 ];
 
 /** Lookup map from provider value to display label. */

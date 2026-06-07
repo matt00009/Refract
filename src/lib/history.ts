@@ -128,7 +128,7 @@ export async function syncLocalHistoryToCloud(): Promise<void> {
       })
     ));
     
-    // Reload and refresh cache
+    // Refresh local storage from cloud after sync
     await loadHistory();
   } catch (err) {
     console.error('Cloud synchronization failed:', err);

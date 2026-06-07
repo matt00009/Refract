@@ -28,16 +28,22 @@ export function TopBar({
   return (
     <div className="fixed top-0 left-0 right-0 h-[52px] bg-[var(--rf-void)] border-b border-[var(--rf-border)] flex items-center justify-between px-4 z-50">
       {/* Brand */}
-      <div className="flex items-center gap-1.5 shrink-0 select-none group cursor-pointer">
-        <span className="font-mono text-[var(--rf-volt)] font-bold text-lg tracking-tighter group-hover:text-shadow-volt transition-all">&gt;_ refract</span>
-      </div>
+      <button
+        className="flex items-center gap-1.5 shrink-0 select-none group cursor-pointer bg-transparent border-none focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--rf-volt)] rounded-sm"
+        aria-label="Refract — Retour à l'accueil"
+        onClick={() => window.location.reload()}
+      >
+        <span className="font-mono text-[var(--rf-volt)] font-bold text-lg tracking-tighter group-hover:text-shadow-volt transition-all">
+          &gt;_ refract
+        </span>
+      </button>
 
       {/* Center controls (Provider Selector) */}
       <div className="flex items-center gap-4">
         {/* Status Indicator */}
         <div className="hidden lg:flex items-center gap-2 px-3 py-1 border border-[var(--rf-border)] bg-[var(--rf-forest)]/30 rounded-sm select-none">
           <div className={`h-1.5 w-1.5 rounded-full ${isLoading ? 'bg-[var(--rf-volt)] animate-pulse' : 'bg-[var(--rf-sky)]'} shadow-[0_0_8px_rgba(121,192,255,0.3)]`} />
-          <span className="text-[9px] font-mono tracking-widest text-[var(--rf-mist)]/50 uppercase">
+          <span className="text-[9px] font-mono tracking-widest text-[var(--rf-mist)]/50 uppercase font-semibold">
             {isLoading ? 'Processing' : 'Terminal Ready'}
           </span>
         </div>

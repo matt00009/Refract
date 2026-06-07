@@ -18,7 +18,7 @@ export const issueSchema = z.object({
   fix_code: z.string().nullable().describe('The exact lines of code that fix the issue. No prose.'),
   fix: z.string().nullable().optional().describe('Legacy fix field, maps to fix_code.'),
   fix_explanation: z.string().nullable().describe('Clean, step-by-step structural instructions in French separated by newlines.'),
-}).passthrough(); // Allow AI to add extra fields per issue
+}); // Removed passthrough for strict validation
 
 export const analysisResultSchema = z.object({
   score: z.number().min(0).max(100).describe('Overall security and quality score out of 100.'),
@@ -37,7 +37,7 @@ export const analysisResultSchema = z.object({
     completionTokens: z.number(),
     totalTokens: z.number(),
   }).optional().describe('Token usage metrics for the analysis.'),
-}).passthrough(); // Allow AI to return entirely new top-level keys
+}); // Removed passthrough for strict validation
 
 export const settingsSchema = z.object({
   temperature: z.number().min(0).max(2).default(0.1),

@@ -79,7 +79,7 @@ export const Editor = memo(function Editor({
       nums.push(
         <div
           key={i}
-          className="h-[26px] text-right text-[11px] font-mono text-[var(--rf-border)] leading-[1.65]"
+          className="h-[26px] text-right text-[11px] font-mono text-[var(--rf-border)]/80 leading-[1.65]"
         >
           {i}
         </div>

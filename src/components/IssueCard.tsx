@@ -157,7 +157,6 @@ export const IssueCard = memo(function IssueCard({ issue, index, language }: Iss
             id={contentId}
             role="region"
             aria-labelledby={`issue-title-${index}`}
-            layout
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

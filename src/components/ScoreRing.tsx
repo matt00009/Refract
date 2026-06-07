@@ -29,8 +29,11 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
       <svg
         className="absolute inset-0 transform -rotate-90"
         viewBox="0 0 128 128"
+        role="img"
         aria-label={`Score: ${Math.round(normalizedScore)} out of 100`}
+        aria-hidden="false"
       >
+        <title>Score: {Math.round(normalizedScore)} / 100</title>
         {/* Track circle */}
         <circle cx="64" cy="64" r={RADIUS} fill="transparent" stroke="var(--rf-border)" strokeWidth="2" />
         {/* Progress circle */}
@@ -56,11 +59,10 @@ export const ScoreRing = memo(function ScoreRing({ score }: ScoreRingProps) {
         >
           {Math.round(normalizedScore)}
         </span>
-        <span className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/40 mt-0.5">
+        <span className="text-[9px] font-mono tracking-widest uppercase text-[var(--rf-mist)]/50 mt-0.5">
           {isExcellent ? 'EXCELLENT' : 'SCORE'}
         </span>
       </div>
     </div>
   );
 });
-

@@ -85,6 +85,11 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4"
     >
       <div className="w-full max-w-[500px] relative">
+        {/* Static live region for accessibility */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {STEPS[step].title} - Étape {step + 1} sur {STEPS.length}
+        </div>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -92,8 +97,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-[10px] p-8 flex flex-col items-center text-center"
-            aria-live="polite"
+            className="bg-[var(--rf-depth)] border border-[var(--rf-border)] rounded-sm p-8 flex flex-col items-center text-center"
           >
             <div className="mb-6 bg-[var(--rf-forest)] p-4 rounded-full border border-[var(--rf-border)]" aria-hidden="true">
               {currentStepData.icon}
@@ -113,11 +117,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rf-mist)]/40" />
                   <input
                     type="password"
+                    autoComplete="new-password"
+                    aria-label="Créer un mot de passe pour le vault (minimum 4 caractères)"
                     placeholder="Create Vault Password (min. 4 chars)"
                     value={vaultPass}
                     onChange={(e) => setVaultPass(e.target.value)}
                     autoFocus
-                    className="w-full bg-[var(--rf-void)] border border-[var(--rf-border)] rounded-[6px] pl-10 pr-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-[var(--rf-volt)]/50 transition-colors"
+                    className="w-full bg-[var(--rf-void)] border border-[var(--rf-border)] rounded-sm pl-10 pr-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-[var(--rf-volt)]/50 transition-colors"
                   />
                 </div>
                 <p className="text-[10px] text-[var(--rf-ember)] font-mono text-left opacity-70 italic">
@@ -141,7 +147,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <button
                 onClick={nextStep}
                 disabled={(currentStepData.isVaultInit && vaultPass.length < 4) || isInitializing}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[var(--rf-volt)] text-[var(--rf-void)] font-bold rounded-[6px] hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-2.5 bg-[var(--rf-volt)] text-[var(--rf-void)] font-bold rounded-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {step === STEPS.length - 1 ? 'Enter Terminal' : (isInitializing ? 'Securing...' : 'Next')}
                 {!isInitializing && step !== STEPS.length - 1 && <ArrowRight size={16} />}

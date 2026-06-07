@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, Trash2, Code2, Download, Upload, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { importHistoryJSON } from '../lib/history';
 import type { HistoryEntry } from '../types/analysis';
 
 interface HistoryDrawerProps {
@@ -41,16 +42,20 @@ export function HistoryDrawer({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Security: 500KB limit
+    if (file.size > 500_000) {
+      console.error('Import file too large');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        const data = JSON.parse(content);
-        if (Array.isArray(data)) {
-          onImport(data);
-        }
-      } catch (err) {
-        console.error('Failed to import history:', err);
+      const content = event.target?.result as string;
+      const validated = importHistoryJSON(content);
+      if (validated) {
+        onImport(validated);
+      } else {
+        console.error('Invalid history file');
       }
     };
     reader.readAsText(file);
@@ -83,7 +88,9 @@ export function HistoryDrawer({
             <div className="flex items-center justify-between p-4 border-b border-[var(--rf-border)] bg-[var(--rf-void)]">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-[var(--rf-volt)]" />
-                <h2 id="history-title" className="text-sm font-bold uppercase tracking-widest text-white">History</h2>
+                <h2 id="history-title" className="rf-micro-caps text-[var(--rf-mist)] font-bold tracking-widest">
+                  // HISTORY_BUFFER
+                </h2>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--rf-forest)] text-[var(--rf-mist)]/60 font-mono">
                   {entries.length}
                 </span>
@@ -102,13 +109,19 @@ export function HistoryDrawer({
               <button
                 onClick={handleExport}
                 disabled={entries.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--rf-forest)] border border-[var(--rf-border)] text-[var(--rf-mist)] hover:text-white hover:border-[var(--rf-volt)]/50 transition-all rounded-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--rf-forest)] border border-[var(--rf-border)] text-[var(--rf-mist)]/60 hover:text-white hover:border-[var(--rf-volt)]/50 transition-all rounded-sm disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <Download size={12} /> Export
+                <Download size={12} aria-hidden="true" /> Export
               </button>
-              <label className="flex-1 flex items-center justify-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--rf-forest)] border border-[var(--rf-border)] text-[var(--rf-mist)] hover:text-white hover:border-[var(--rf-volt)]/50 transition-all rounded-sm cursor-pointer">
-                <Upload size={12} /> Import
-                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+              <label className="flex-1 flex items-center justify-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--rf-forest)] border border-[var(--rf-border)] text-[var(--rf-mist)]/60 hover:text-white hover:border-[var(--rf-volt)]/50 transition-all rounded-sm cursor-pointer">
+                <Upload size={12} aria-hidden="true" /> Import
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                  aria-label="Importer un fichier d'historique JSON"
+                />
               </label>
             </div>
 
@@ -155,7 +168,7 @@ export function HistoryDrawer({
                           {entry.score}%
                         </span>
                       </div>
-                      <div className="text-[9px] font-mono text-[var(--rf-mist)]/40 truncate flex-1">
+                      <div className="text-[9px] font-mono text-[var(--rf-mist)]/60 truncate flex-1">
                         {entry.provider} · {entry.code.length} chars
                       </div>
                     </div>

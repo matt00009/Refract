@@ -5,7 +5,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig({
   plugins: [react(), viteSingleFile()],
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react'], // Note: Removing this might slow dev start, but allows tree-shaking
   },
   build: {
     target: 'esnext',

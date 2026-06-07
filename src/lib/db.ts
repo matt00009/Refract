@@ -5,7 +5,11 @@ import type { HistoryEntry, AnalysisResult } from '../types/analysis';
  * PocketBase Client for SOTA Cloud Persistence.
  * This client handles Real-time Subscriptions and Zero-Knowledge Auth for Phase 3.
  */
-export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090');
+const pbUrl = import.meta.env.VITE_POCKETBASE_URL;
+if (!pbUrl && import.meta.env.PROD) {
+  console.error('[Refract] VITE_POCKETBASE_URL non défini en production.');
+}
+export const pb = new PocketBase(pbUrl || 'http://127.0.0.1:8090');
 
 // Disable auto-cancellation for multiple parallel requests in the same hook
 pb.autoCancellation(false);
