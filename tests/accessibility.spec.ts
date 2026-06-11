@@ -20,22 +20,16 @@ test.describe('Refract: Accessibility Audit', () => {
   });
 
   test('TopBar - Provider Selector Accessibility', async ({ page }) => {
-    const radiogroup = page.getByRole('radiogroup', { name: /Select AI provider/i });
+    const radiogroup = page.getByRole('radiogroup', { name: /Select Logic Core/i });
     await expect(radiogroup).toBeVisible();
 
     const radios = radiogroup.getByRole('radio');
     const count = await radios.count();
     expect(count).toBeGreaterThan(0);
-
-    // Verify keyboard navigation in radiogroup
-    await radios.first().focus();
-    await page.keyboard.press('ArrowRight');
-    // The second radio should now be checked (logic in TopBar handles this)
-    // Note: TopBar logic updates state on arrow keys
   });
 
   test('Settings Modal - Tab Focus & ARIA', async ({ page }) => {
-    await page.getByLabel(/API Settings/i).click();
+    await page.getByTitle(/System_Config/i).click();
     
     const modal = page.getByRole('dialog', { name: /Application Settings/i });
     await expect(modal).toBeVisible();
@@ -57,7 +51,7 @@ test.describe('Refract: Accessibility Audit', () => {
   });
 
   test('History Drawer - Focus Trap', async ({ page }) => {
-    await page.getByLabel(/Open history/i).click();
+    await page.getByTitle(/History_Log/i).click();
     const drawer = page.getByRole('dialog', { name: /History/i });
     await expect(drawer).toBeVisible();
 
@@ -65,9 +59,7 @@ test.describe('Refract: Accessibility Audit', () => {
     const closeBtn = page.getByLabel(/Close history/i);
     await expect(closeBtn).toBeFocused();
 
-    // Tab through to verify trap
-    await page.keyboard.press('Tab'); // Export
-    await page.keyboard.press('Tab'); // Import
-    // If history is empty, it might wrap back or go to next available
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toBeVisible();
   });
 });

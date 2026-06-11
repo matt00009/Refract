@@ -44,7 +44,9 @@ Ce document définit les rôles et protocoles pour l'essaim d'agents d'audit de 
   - Audit `src/lib/crypto.ts` for proper `AES-GCM` implementation.
   - Verify `localStorage` encryption flow for API keys.
   - Test `detectPromptInjection` patterns in `server/index.ts`.
-- **Standard:** Secrets must NEVER leave the client in plaintext.
+- **Skills:**
+  - `sentrux-scan`: Real-time architectural feedback loop to prevent technical debt.
+- **Standard:** Secrets must NEVER leave the client in plaintext. Architectural score ≥ 9,500.
 
 ### 5. `ux-accessibility-auditor`
 **Focus:** WCAG 2.1 AA Compliance and Framer Motion layout transitions.
@@ -52,6 +54,8 @@ Ce document définit les rôles et protocoles pour l'essaim d'agents d'audit de 
   - Audit `IssueCard.tsx` for proper `layoutId` usage.
   - Verify ARIA labels on all new Vercel AI SDK related components.
   - Ensure focus trap integrity in `HistoryDrawer`.
+- **Skills:**
+  - `ui-ux-pro-max`: Advanced ergonomic and accessibility principles.
 - **Standard:** 100% keyboard navigable and screen-reader friendly.
 
 ### 6. `design-specialist`
@@ -60,6 +64,15 @@ Ce document définit les rôles et protocoles pour l'essaim d'agents d'audit de 
   - Audit Tailwind class redundancy and theme variable consistency.
   - Apply Design Laws (Hick, Fitts, Proximity) to the main dashboard.
   - Optimize interactive states (:hover, :focus) and high-fidelity animations.
+- **Skills:**
+  - `od-default`: The core Open Design router for prototypes and artifacts.
+  - `od-new-generation`: Production-grade component and page generation.
+  - `od-design-refine`: Iterative refinement and critique loop.
+  - `design-md`: Source-of-truth design specification handling.
+  - `impeccable`: Use `/polish`, `/audit`, and `/critique` to eliminate "AI slop".
+  - `brutalist`: Enforce the core aesthetic of Refract.
+  - `impeccable-polish`: High-fidelity refinement patterns.
+  - `frontend-design`: Industrial-grade component structures.
 - **Standard:** Brutalist but Accessible. No "magic values", 100% theme-driven.
 
 ---

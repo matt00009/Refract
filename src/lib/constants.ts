@@ -1,4 +1,4 @@
-import { SparklesIcon, AnthropicIcon, GeminiIcon, MistralIcon, GroqIcon, DeepSeekIcon } from '../components/icons/ProviderIcons';
+import { SparklesIcon, AnthropicIcon, GeminiIcon, MistralIcon, GroqIcon, DeepSeekIcon } from './icons';
 import type { Provider } from '../types/analysis';
 
 /** All supported programming languages including 'auto' for detection. */

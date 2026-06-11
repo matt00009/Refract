@@ -12,6 +12,7 @@ description: UX quality, accessibility, and responsive design validator
 - **WCAG 2.1 AA Enforcement:** Verify ARIA roles, focus management, and keyboard navigation.
 - **E2E Testing Awareness:** Acknowledge the Playwright suite for visual regressions and focus trap verification.
 - **Fluid UI Transitions:** Acknowledge Framer Motion 'layout' props for shared layout animations.
+- **Advanced UX Skill:** Leverage `ui-ux-pro-max` for complex ergonomic audits and accessibility edge cases.
 
 ## Responsibilities:
 - Execute `npx playwright test` to verify accessibility and visual regressions

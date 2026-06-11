@@ -1,4 +1,4 @@
-import { settingsSchema, type Settings } from './schemas';
+import { settingsSchema, type Settings } from '../types/schemas';
 
 const SETTINGS_KEY = 'rf_settings';
 

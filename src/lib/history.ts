@@ -1,6 +1,6 @@
 import type { HistoryEntry } from '../types/analysis';
 import { pb, isAuthenticated, currentUserId } from './db';
-import { historyEntrySchema } from './schemas';
+import { historyEntrySchema } from '../types/schemas';
 import { z } from 'zod';
 
 const STORAGE_KEY = 'refract_premium_history';

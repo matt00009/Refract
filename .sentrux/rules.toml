@@ -1,0 +1,36 @@
+[constraints]
+min_quality = 0.85
+min_modularity = 0.70
+min_acyclicity = 0.98
+min_equality = 0.60
+min_redundancy = 0.90
+
+max_cc = 20
+max_fn_lines = 80
+god_files_ceiling = 1
+max_cycles = 0
+
+[[layers]]
+name = "app"
+paths = ["src/App.tsx", "src/main.tsx"]
+order = 0
+
+[[layers]]
+name = "components"
+paths = ["src/components/**/*"]
+order = 1
+
+[[layers]]
+name = "hooks"
+paths = ["src/hooks/**/*"]
+order = 2
+
+[[layers]]
+name = "lib"
+paths = ["src/lib/**/*"]
+order = 3
+
+[[layers]]
+name = "types"
+paths = ["src/types/**/*"]
+order = 4

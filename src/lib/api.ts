@@ -1,5 +1,5 @@
 import type { AnalysisResult } from '../types/analysis';
-import { analysisResultSchema } from './schemas';
+import { analysisResultSchema } from '../types/schemas';
 import { decryptVault } from './crypto';
 import { loadSettings } from './settings';
 

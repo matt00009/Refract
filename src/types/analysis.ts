@@ -1,4 +1,4 @@
-import { type ZodAnalysisResult, type ZodIssue, type ZodHistoryEntry } from '../lib/schemas';
+import { type ZodAnalysisResult, type ZodIssue, type ZodHistoryEntry } from './schemas';
 
 /** Severity levels for code review issues. */
 export type Severity = 'bug' | 'warning' | 'suggestion';
